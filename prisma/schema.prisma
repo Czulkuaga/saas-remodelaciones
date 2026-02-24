@@ -1,0 +1,1409 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ------------------------------------------------
+// Enum
+// ------------------------------------------------
+enum MembershipCategory {
+  SUPERADMIN
+  ADMIN
+  USER
+  PROFESSIONAL
+}
+
+enum TenantStatus {
+  ACTIVE
+  SUSPENDED
+  DELETED
+}
+
+enum AuthEventType {
+  LOGIN_SUCCESS
+  LOGIN_FAILED
+  LOGOUT
+  SESSION_REVOKED
+  SESSION_EXPIRED
+  SESSION_IDLE_TIMEOUT
+  PASSWORD_RESET_REQUESTED
+  PASSWORD_RESET_COMPLETED
+}
+
+enum PartnerType {
+  PERSON
+  ORGANIZATION
+}
+
+enum BPRoleType {
+  STAFF
+  CONTACT
+  SUPPLIER
+  CLIENT
+  CONTRACTOR
+  ARCHITECT
+  ENGINEER
+}
+
+enum NumberRangeObject {
+  BUSINESS_PARTNER
+  ORG_UNIT
+  LOCATION
+  REMODELING_PROJECT
+  CHANGE_ORDER
+  TASK
+  QUOTE
+  INVOICE
+  PAYMENT
+}
+
+enum TranslatableEntity {
+  BUSINESS_PARTNER
+  ORG_UNIT
+  LOCATION
+  CUSTOM
+}
+
+enum TranslatableField {
+  NAME
+  DESCRIPTION
+}
+
+enum ChannelProvider {
+  WHATSAPP
+  EMAIL
+}
+
+enum ConversationStatus {
+  OPEN
+  CLOSED
+  ARCHIVED
+}
+
+enum MessageDirection {
+  INBOUND
+  OUTBOUND
+}
+
+enum SenderKind {
+  HUMAN
+  AI
+  SYSTEM
+}
+
+enum AttachmentType {
+  IMAGE
+  VIDEO
+  AUDIO
+  FILE
+  LOCATION
+  CONTACT
+}
+
+enum ProjectStatus {
+  DRAFT
+  PLANNING
+  IN_PROGRESS
+  ON_HOLD
+  COMPLETED
+  CANCELLED
+}
+
+enum TaskStatus {
+  TODO
+  IN_PROGRESS
+  DONE
+  BLOCKED
+  CANCELLED
+}
+
+enum ChangeOrderStatus {
+  DRAFT
+  PENDING_APPROVAL
+  APPROVED
+  REJECTED
+  IMPLEMENTED
+  CANCELLED
+}
+
+enum PendingActionStatus {
+  PENDING
+  CONFIRMED
+  REJECTED
+  EXPIRED
+  CANCELLED
+}
+
+enum EmailStatus {
+  DRAFT
+  QUEUED
+  SENT
+  FAILED
+  CANCELLED
+}
+
+enum ProjectDocumentCategory {
+  INVOICE
+  RECEIPT
+  QUOTE
+  CONTRACT
+  PHOTO
+  REPORT
+  OTHER
+}
+
+enum ExpenseStatus {
+  DRAFT
+  CONFIRMED
+  CANCELLED
+}
+
+enum MeetingStatus {
+  DRAFT
+  SCHEDULED
+  CANCELLED
+  COMPLETED
+}
+
+enum ProgressMethod {
+  TASKS_SIMPLE
+  TASKS_WEIGHTED
+  MANUAL
+}
+
+// ------------------------------------------------
+// Models
+// ------------------------------------------------
+
+model Tenant {
+  id        String       @id @default(uuid())
+  code      String       @unique // tipo SAP "BUKRS"
+  name      String
+  slug      String       @unique
+  status    TenantStatus @default(ACTIVE)
+  deletedAt DateTime?
+
+  // Defaults (SAP-like: sociedad/empresa tiene defaults)
+  countryCode         String?
+  defaultLocaleCode   String
+  defaultTimeZoneId   String
+  defaultCurrencyCode String
+  // defaultLanguageCode String
+  // defaultLanguage     Language     @relation(fields: [defaultLanguageCode], references: [code])
+
+  defaultLocale   Locale   @relation("TenantDefaultLocale", fields: [defaultLocaleCode], references: [code], onDelete: Restrict)
+  defaultTimeZone TimeZone @relation(fields: [defaultTimeZoneId], references: [id], onDelete: Restrict)
+  defaultCurrency Currency @relation(fields: [defaultCurrencyCode], references: [code], onDelete: Restrict)
+  country         Country? @relation(fields: [countryCode], references: [code], onDelete: Restrict)
+
+  // CORE
+  orgUnits      OrgUnit[]
+  locations     Location[]
+  partners      BusinessPartner[]
+  tenantLocales TenantLocale[]
+  numberRanges  NumberRange[]
+  memberships   TenantMembership[]
+
+  // Proyects
+  expenses          Expense[]
+  projectDocuments  ProjectDocument[]
+  meetings          Meeting[]
+  progressSnapshots ProjectProgressSnapshot[]
+
+  // users      TenantMembership[]
+  roles      Role[]
+  sessions   Session[]
+  auditLogs  AuditLog[]
+  authEvents AuthEvent[]
+
+  createdAt            DateTime              @default(now())
+  updatedAt            DateTime              @updatedAt
+  businessPartnerRoles BusinessPartnerRole[]
+  channelAccounts      ChannelAccount[]
+  externalIdentities   ExternalIdentity[]
+  conversations        Conversation[]
+  messages             Message[]
+  messageAttachments   MessageAttachment[]
+  inboundEvents        InboundEvent[]
+  pendingActions       PendingAction[]
+  remodelingProjects   RemodelingProject[]
+  remodelingTasks      RemodelingTask[]
+  changeOrders         ChangeOrder[]
+  quotes               Quote[]
+  quoteLines           QuoteLine[]
+  invoices             Invoice[]
+  payments             Payment[]
+  timelineEvents       TimelineEvent[]
+  emailOutboxes        EmailOutbox[]
+}
+
+model OrgUnit {
+  id       String @id @default(uuid())
+  tenantId String
+
+  // SAP-like org unit key
+  code String
+  name String
+
+  // Parent by business key (tenant-scoped)
+  parentCode String?
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+
+  // composite self-relation: (tenantId,parentCode) -> (tenantId,code)
+  parent   OrgUnit?  @relation("OrgHierarchy", fields: [tenantId, parentCode], references: [tenantId, code], onDelete: Restrict)
+  children OrgUnit[] @relation("OrgHierarchy")
+
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
+  remodelingProjects RemodelingProject[]
+
+  @@unique([tenantId, code])
+  @@index([tenantId])
+  @@index([tenantId, parentCode])
+}
+
+model Location {
+  id       String @id @default(uuid())
+  tenantId String
+
+  code String
+  name String
+
+  addressLine1 String?
+  city         String?
+  postalCode   String?
+
+  countryCode String?
+  country     Country? @relation(fields: [countryCode], references: [code], onDelete: Restrict)
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
+  remodelingProjects RemodelingProject[]
+
+  @@unique([tenantId, code])
+  @@index([tenantId])
+  @@index([countryCode])
+}
+
+model TenantLocale {
+  id         String  @id @default(uuid())
+  tenantId   String
+  localeCode String
+  isActive   Boolean @default(true)
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  locale Locale @relation(fields: [localeCode], references: [code], onDelete: Restrict)
+
+  @@unique([tenantId, localeCode])
+  @@index([tenantId])
+  @@index([localeCode])
+}
+
+model BusinessPartnerRole {
+  id String @id @default(uuid())
+
+  tenantId  String
+  partnerId String
+  role      BPRoleType
+
+  tenant  Tenant          @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  partner BusinessPartner @relation(fields: [partnerId], references: [id], onDelete: Restrict)
+
+  createdAt DateTime @default(now())
+
+  // Evita duplicados por partner
+  @@unique([tenantId, partnerId, role])
+  // Índices multi-tenant (queries reales)
+  @@index([tenantId, role])
+  @@index([tenantId, partnerId])
+  @@index([role])
+}
+
+model Translation {
+  id       String  @id @default(uuid())
+  tenantId String?
+
+  entity   TranslatableEntity
+  entityId String
+  field    TranslatableField
+
+  localeCode String
+  value      String
+
+  locale Locale @relation(fields: [localeCode], references: [code], onDelete: Restrict)
+
+  @@unique([tenantId, entity, entityId, field, localeCode])
+  @@index([entity, entityId])
+  @@index([localeCode])
+}
+
+model User {
+  id              String  @id @default(uuid())
+  email           String
+  emailNormalized String  @unique
+  name            String?
+  passwordHash    String
+  isActive        Boolean @default(true)
+
+  memberships           TenantMembership[]
+  sessions              Session[]
+  authEvents            AuthEvent[]
+  // userPreference UserPreference?
+  // changeOrder ChangeOrder[]
+  changeOrdersRequested ChangeOrder[]      @relation("ChangeOrderRequestedByUser")
+  changeOrdersApproved  ChangeOrder[]      @relation("ChangeOrderApprovedByUser")
+
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
+  externalIdentities ExternalIdentity[]
+  messages           Message[]
+  remodelingTasks    RemodelingTask[]
+  projectDocuments   ProjectDocument[]
+  expenses           Expense[]
+  meetings           Meeting[]
+
+  @@index([emailNormalized])
+}
+
+model Role {
+  id String @id @default(uuid())
+
+  tenantId String?
+  name     String
+  key      String
+  isSystem Boolean @default(false)
+
+  tenant Tenant? @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+
+  permissions RolePermission[]
+  members     MembershipRole[]
+
+  createdAt DateTime @default(now())
+
+  @@unique([tenantId, key])
+  @@index([tenantId])
+}
+
+model Permission {
+  id          String  @id @default(uuid())
+  key         String  @unique
+  description String?
+
+  roles RolePermission[]
+}
+
+model RolePermission {
+  id String @id @default(uuid())
+
+  roleId       String
+  permissionId String
+
+  role       Role       @relation(fields: [roleId], references: [id], onDelete: Restrict)
+  permission Permission @relation(fields: [permissionId], references: [id], onDelete: Restrict)
+
+  @@unique([roleId, permissionId])
+  @@index([roleId])
+  @@index([permissionId])
+}
+
+model TenantMembership {
+  id String @id @default(uuid())
+
+  tenantId String
+  userId   String
+
+  category MembershipCategory
+  isActive Boolean            @default(true)
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  user   User   @relation(fields: [userId], references: [id], onDelete: Restrict)
+
+  roles     MembershipRole[]
+  auditLogs AuditLog[]
+
+  createdAt DateTime @default(now())
+
+  @@unique([tenantId, userId])
+  @@index([tenantId])
+  @@index([userId])
+  @@index([tenantId, userId])
+  @@index([tenantId, isActive])
+}
+
+model MembershipRole {
+  id String @id @default(uuid())
+
+  membershipId String
+  roleId       String
+
+  membership TenantMembership @relation(fields: [membershipId], references: [id], onDelete: Restrict)
+  role       Role             @relation(fields: [roleId], references: [id], onDelete: Restrict)
+
+  @@unique([membershipId, roleId])
+  @@index([membershipId])
+  @@index([roleId])
+}
+
+model Session {
+  id String @id @default(uuid())
+
+  userId   String
+  tenantId String
+
+  tokenHash String @unique
+
+  ip        String?
+  userAgent String?
+
+  expiresAt  DateTime
+  revokedAt  DateTime?
+  lastSeenAt DateTime?
+
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([tenantId])
+  @@index([expiresAt])
+  @@index([revokedAt])
+  @@index([tokenHash])
+  @@index([tenantId, userId])
+}
+
+model AuditLog {
+  id String @id @default(uuid())
+
+  tenantId          String
+  actorMembershipId String
+
+  action       String
+  resourceType String
+  resourceId   String?
+
+  method    String?
+  path      String?
+  ip        String?
+  userAgent String?
+
+  success  Boolean @default(true)
+  message  String?
+  metadata Json?
+
+  tenant          Tenant           @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  actorMembership TenantMembership @relation(fields: [actorMembershipId], references: [id], onDelete: Restrict)
+
+  createdAt DateTime @default(now())
+
+  @@index([tenantId, createdAt])
+  @@index([actorMembershipId])
+  @@index([action])
+}
+
+model AuthEvent {
+  id String @id @default(uuid())
+
+  tenantId String?
+  userId   String?
+
+  type    AuthEventType
+  success Boolean       @default(true)
+  message String?
+
+  ip        String?
+  userAgent String?
+  host      String?
+
+  metadata Json?
+
+  createdAt DateTime @default(now())
+
+  tenant Tenant? @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  user   User?   @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([tenantId, createdAt])
+  @@index([userId, createdAt])
+  @@index([type, createdAt])
+}
+
+model NumberRange {
+  id       String            @id @default(uuid())
+  tenantId String
+  object   NumberRangeObject
+
+  prefix  String?
+  nextNo  Int
+  padding Int     @default(8)
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+
+  @@unique([tenantId, object])
+  @@index([tenantId])
+}
+
+// ------------------------------------------------
+// Models of modules
+// ------------------------------------------------
+
+// Canal / WhatsApp
+
+model ChannelAccount {
+  id String @id @default(uuid())
+
+  // Opcional: si algún día un tenant tiene su propio número/canal.
+  // Para tu caso (un solo número global), puedes dejar tenantId null.
+  tenantId String?
+
+  provider ChannelProvider
+  name     String
+
+  // Identificador del proveedor (WABA ID / Evolution instance / etc.)
+  providerAccountId String? // puedes usarlo como wabaId
+  phoneNumberId     String?
+
+  isActive Boolean @default(true)
+
+  tenant Tenant? @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+
+  identities    ExternalIdentity[]
+  conversations Conversation[]
+  inboundEvents InboundEvent[]
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  messages  Message[]
+
+  @@unique([provider, phoneNumberId])
+  @@index([provider, providerAccountId])
+  @@index([provider])
+  @@index([tenantId])
+}
+
+model ExternalIdentity {
+  id String @id @default(uuid())
+
+  tenantId         String
+  channelAccountId String
+
+  // WhatsApp: +573001112233
+  identifier           String
+  identifierNormalized String
+
+  // Se asocia al "actor" principal: BusinessPartner (cliente/proveedor) o User (usuario SaaS)
+  partnerId String?
+  userId    String?
+
+  isPrimary  Boolean   @default(true)
+  verifiedAt DateTime?
+
+  tenant         Tenant           @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  channelAccount ChannelAccount   @relation(fields: [channelAccountId], references: [id], onDelete: Restrict)
+  partner        BusinessPartner? @relation(fields: [partnerId], references: [id], onDelete: Restrict)
+  user           User?            @relation(fields: [userId], references: [id], onDelete: Restrict)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([tenantId, channelAccountId, identifierNormalized])
+  @@index([tenantId, identifierNormalized])
+  @@index([channelAccountId, identifierNormalized])
+  @@index([partnerId])
+  @@index([userId])
+}
+
+model Conversation {
+  id String @id @default(uuid())
+
+  tenantId         String
+  channelAccountId String
+
+  // Normalmente el contacto (BP) que escribe por WhatsApp
+  contactPartnerId String?
+
+  status ConversationStatus @default(OPEN)
+
+  // Para routing y UX
+  subject        String?
+  lastMessageAt  DateTime?
+  lastInboundAt  DateTime?
+  lastOutboundAt DateTime?
+
+  // Link opcional a un proyecto si ya está asociado
+  projectId String?
+
+  tenant         Tenant           @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  channelAccount ChannelAccount   @relation(fields: [channelAccountId], references: [id], onDelete: Restrict)
+  contactPartner BusinessPartner? @relation(fields: [contactPartnerId], references: [id], onDelete: Restrict)
+
+  project RemodelingProject? @relation(fields: [projectId], references: [id], onDelete: SetNull)
+
+  messages       Message[]
+  pendingActions PendingAction[]
+  timelineEvents TimelineEvent[]
+
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+  emailOutboxes EmailOutbox[]
+
+  @@index([tenantId, status])
+  @@index([tenantId, lastMessageAt])
+  @@index([channelAccountId])
+  @@index([tenantId, contactPartnerId])
+  @@index([tenantId, projectId])
+}
+
+model Message {
+  id String @id @default(uuid())
+
+  tenantId       String
+  conversationId String
+
+  direction  MessageDirection
+  senderKind SenderKind
+
+  // actor humano (si aplica)
+  actorUserId    String?
+  actorPartnerId String?
+
+  // ids del proveedor (WhatsApp messageId, etc.)
+  providerMessageId String?
+  providerPayload   Json?
+
+  text String?
+
+  replyToMessageId String?
+
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  tenant       Tenant       @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+
+  actorUser    User?            @relation(fields: [actorUserId], references: [id], onDelete: SetNull)
+  actorPartner BusinessPartner? @relation(fields: [actorPartnerId], references: [id], onDelete: SetNull)
+
+  channelAccountId String
+  channelAccount   ChannelAccount @relation(fields: [channelAccountId], references: [id], onDelete: Restrict)
+
+  attachments MessageAttachment[]
+
+  createdAt        DateTime          @default(now())
+  timelineEvents   TimelineEvent[]
+  projectDocuments ProjectDocument[]
+
+  // si el proveedor no manda providerMessageId en algunos casos, esta unique no aplica
+  @@unique([channelAccountId, providerMessageId])
+  @@index([tenantId, createdAt])
+  @@index([conversationId, createdAt])
+  @@index([providerMessageId])
+}
+
+model MessageAttachment {
+  id String @id @default(uuid())
+
+  tenantId  String
+  messageId String
+
+  type AttachmentType
+
+  url      String?
+  mimeType String?
+  fileName String?
+  size     Int?
+
+  // Para ubicación (location), etc.
+  metadata Json?
+
+  tenant  Tenant  @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  message Message @relation(fields: [messageId], references: [id], onDelete: Cascade)
+
+  createdAt        DateTime          @default(now())
+  projectDocuments ProjectDocument[]
+
+  @@index([tenantId, messageId])
+  @@index([messageId])
+}
+
+model InboundEvent {
+  id String @id @default(uuid())
+
+  channelAccountId String
+  tenantId         String?
+
+  providerEventId String
+  payload         Json
+
+  receivedAt DateTime @default(now())
+
+  channelAccount ChannelAccount @relation(fields: [channelAccountId], references: [id], onDelete: Restrict)
+  tenant         Tenant?        @relation(fields: [tenantId], references: [id], onDelete: SetNull)
+
+  @@unique([channelAccountId, providerEventId])
+  @@index([receivedAt])
+  @@index([tenantId, receivedAt])
+}
+
+// Confirmaciones (acciones “sensibles” desde WhatsApp)
+model PendingAction {
+  id String @id @default(uuid())
+
+  tenantId       String
+  conversationId String
+
+  status PendingActionStatus @default(PENDING)
+
+  // "CREATE_CHANGE_ORDER", "APPROVE_QUOTE", "SCHEDULE_VISIT", etc.
+  actionType String
+
+  // payload que tu command service entiende
+  payload Json
+
+  // Para validar que confirme el mismo contacto
+  expectedPartnerId String?
+
+  expiresAt DateTime
+
+  confirmedAt DateTime?
+  rejectedAt  DateTime?
+
+  tenant       Tenant       @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@index([tenantId, status])
+  @@index([conversationId, status])
+  @@index([expiresAt])
+}
+
+// Remodelaciones (proyectos + tareas + reformas)
+
+model RemodelingProject {
+  id       String @id @default(uuid())
+  tenantId String
+
+  code String
+  name String
+
+  status ProjectStatus @default(DRAFT)
+
+  // cliente/propietario
+  clientPartnerId String?
+
+  // dirección del inmueble
+  addressLine1 String?
+  city         String?
+  postalCode   String?
+  countryCode  String?
+
+  // opcional: ubicación interna/operativa
+  locationId String?
+  orgUnitId  String?
+
+  startDate     DateTime?
+  targetEndDate DateTime?
+
+  // Resumen del alcance
+  scopeSummary String?
+
+  tenant  Tenant   @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  country Country? @relation(fields: [countryCode], references: [code], onDelete: Restrict)
+
+  clientPartner BusinessPartner? @relation(fields: [clientPartnerId], references: [id], onDelete: Restrict)
+  location      Location?        @relation(fields: [locationId], references: [id], onDelete: Restrict)
+  orgUnit       OrgUnit?         @relation(fields: [orgUnitId], references: [id], onDelete: Restrict)
+
+  tasks         RemodelingTask[]
+  changeOrders  ChangeOrder[]
+  quotes        Quote[]
+  invoices      Invoice[]
+  payments      Payment[]
+  timeline      TimelineEvent[]
+  conversations Conversation[]
+
+  documents         ProjectDocument[]
+  expenses          Expense[]
+  meetings          Meeting[]
+  progressSnapshots ProjectProgressSnapshot[]
+
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+  emailOutboxes EmailOutbox[]
+
+  @@unique([tenantId, code])
+  @@index([tenantId, status])
+  @@index([tenantId, clientPartnerId])
+  @@index([tenantId, locationId])
+  @@index([tenantId, orgUnitId])
+}
+
+model RemodelingTask {
+  id String @id @default(uuid())
+
+  tenantId  String
+  projectId String
+
+  code        String?
+  title       String
+  description String?
+
+  weight Int @default(1)
+
+  status  TaskStatus @default(TODO)
+  dueDate DateTime?
+
+  // asignación
+  assigneePartnerId String?
+  assigneeUserId    String?
+
+  tenant  Tenant            @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  project RemodelingProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  assigneePartner BusinessPartner? @relation(fields: [assigneePartnerId], references: [id], onDelete: Restrict)
+  assigneeUser    User?            @relation(fields: [assigneeUserId], references: [id], onDelete: Restrict)
+
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  timelineEvents TimelineEvent[]
+
+  @@index([tenantId, projectId])
+  @@index([tenantId, status])
+  @@index([projectId, dueDate])
+}
+
+model ChangeOrder {
+  id String @id @default(uuid())
+
+  tenantId  String
+  projectId String
+
+  code        String
+  title       String
+  description String?
+
+  status ChangeOrderStatus @default(DRAFT)
+
+  estimatedCost Decimal?
+  currencyCode  String?
+
+  requestedByPartnerId String?
+  requestedByUserId    String?
+
+  approvedAt       DateTime?
+  approvedByUserId String?
+
+  tenant  Tenant            @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  project RemodelingProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  currency Currency? @relation(fields: [currencyCode], references: [code], onDelete: Restrict)
+
+  requestedByPartner BusinessPartner? @relation(fields: [requestedByPartnerId], references: [id], onDelete: Restrict)
+
+  requestedByUser User? @relation("ChangeOrderRequestedByUser", fields: [requestedByUserId], references: [id], onDelete: Restrict)
+  approvedByUser  User? @relation("ChangeOrderApprovedByUser", fields: [approvedByUserId], references: [id], onDelete: Restrict)
+
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  timelineEvents TimelineEvent[]
+
+  @@unique([tenantId, code])
+  @@index([tenantId, projectId])
+  @@index([tenantId, status])
+}
+
+// Cotizaciones / facturas / pagos (mínimo viable)
+
+model Quote {
+  id String @id @default(uuid())
+
+  tenantId  String
+  projectId String
+
+  code  String
+  title String?
+
+  currencyCode String
+  subtotal     Decimal @default(0)
+  tax          Decimal @default(0)
+  total        Decimal @default(0)
+
+  notes  String?
+  status String  @default("DRAFT") // si luego quieres enum
+
+  tenant   Tenant            @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  project  RemodelingProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  currency Currency          @relation(fields: [currencyCode], references: [code], onDelete: Restrict)
+
+  lines QuoteLine[]
+
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  timelineEvents TimelineEvent[]
+
+  @@unique([tenantId, code])
+  @@index([tenantId, projectId])
+}
+
+model QuoteLine {
+  id String @id @default(uuid())
+
+  tenantId String
+  quoteId  String
+
+  description String
+  qty         Decimal @default(1)
+  unitPrice   Decimal @default(0)
+  total       Decimal @default(0)
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  quote  Quote  @relation(fields: [quoteId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, quoteId])
+}
+
+model Invoice {
+  id String @id @default(uuid())
+
+  tenantId  String
+  projectId String
+
+  code         String
+  currencyCode String
+
+  subtotal Decimal @default(0)
+  tax      Decimal @default(0)
+  total    Decimal @default(0)
+
+  status String @default("DRAFT")
+
+  tenant   Tenant            @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  project  RemodelingProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  currency Currency          @relation(fields: [currencyCode], references: [code], onDelete: Restrict)
+
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  timelineEvents TimelineEvent[]
+
+  @@unique([tenantId, code])
+  @@index([tenantId, projectId])
+}
+
+model Payment {
+  id String @id @default(uuid())
+
+  tenantId  String
+  projectId String
+
+  code String?
+
+  amount       Decimal
+  currencyCode String
+
+  paidAt DateTime?
+
+  method    String? // "CASH", "TRANSFER", "CARD"
+  reference String?
+
+  tenant   Tenant            @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  project  RemodelingProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  currency Currency          @relation(fields: [currencyCode], references: [code], onDelete: Restrict)
+
+  createdAt      DateTime        @default(now())
+  timelineEvents TimelineEvent[]
+
+  @@index([tenantId, projectId])
+  @@index([tenantId, paidAt])
+}
+
+// Timeline unificada (tu “control total”)
+
+model TimelineEvent {
+  id String @id @default(uuid())
+
+  tenantId  String
+  projectId String?
+
+  type        String
+  title       String?
+  description String?
+
+  conversationId String?
+  messageId      String?
+  taskId         String?
+  changeOrderId  String?
+  quoteId        String?
+  invoiceId      String?
+  paymentId      String?
+
+  actorUserId    String?
+  actorPartnerId String?
+  senderKind     SenderKind @default(SYSTEM)
+
+  metadata Json?
+
+  tenant  Tenant             @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  project RemodelingProject? @relation(fields: [projectId], references: [id], onDelete: SetNull)
+
+  conversation Conversation? @relation(fields: [conversationId], references: [id], onDelete: SetNull)
+  message      Message?      @relation(fields: [messageId], references: [id], onDelete: SetNull)
+
+  task        RemodelingTask? @relation(fields: [taskId], references: [id], onDelete: SetNull)
+  changeOrder ChangeOrder?    @relation(fields: [changeOrderId], references: [id], onDelete: SetNull)
+  quote       Quote?          @relation(fields: [quoteId], references: [id], onDelete: SetNull)
+  invoice     Invoice?        @relation(fields: [invoiceId], references: [id], onDelete: SetNull)
+  payment     Payment?        @relation(fields: [paymentId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+
+  @@index([tenantId, createdAt])
+  @@index([tenantId, projectId, createdAt])
+  @@index([projectId, createdAt])
+}
+
+// Email outbox (para que “el agente envíe emails” pero de forma segura)
+
+model EmailOutbox {
+  id String @id @default(uuid())
+
+  tenantId String
+
+  status EmailStatus @default(DRAFT)
+
+  fromName  String?
+  fromEmail String?
+
+  toEmail  String
+  ccEmail  String?
+  bccEmail String?
+
+  subject  String
+  htmlBody String?
+  textBody String?
+
+  // Para asociar a un proyecto y/o conversación
+  projectId      String?
+  conversationId String?
+
+  // trazabilidad
+  providerMessageId String?
+  lastError         String?
+
+  metadata Json?
+
+  tenant       Tenant             @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  project      RemodelingProject? @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  conversation Conversation?      @relation(fields: [conversationId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([tenantId, status])
+  @@index([tenantId, createdAt])
+  @@index([tenantId, projectId])
+}
+
+// Documentos del proyecto (clasificación Facturas / Fotos / PDFs)
+model ProjectDocument {
+  id String @id @default(uuid())
+
+  tenantId  String
+  projectId String
+
+  category ProjectDocumentCategory
+
+  // metadata archivo
+  fileName String?
+  mimeType String?
+  size     Int?
+  sha256   String?
+
+  // dónde está guardado (S3/R2/local)
+  url        String?
+  storageKey String?
+
+  // si viene desde WhatsApp
+  sourceMessageId    String?
+  sourceAttachmentId String?
+
+  // actor que lo registró (dueño vía WhatsApp o usuario SaaS)
+  createdByUserId    String?
+  createdByPartnerId String?
+
+  metadata Json?
+
+  tenant  Tenant            @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  project RemodelingProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  sourceMessage    Message?           @relation(fields: [sourceMessageId], references: [id], onDelete: SetNull)
+  sourceAttachment MessageAttachment? @relation(fields: [sourceAttachmentId], references: [id], onDelete: SetNull)
+
+  createdByUser    User?            @relation(fields: [createdByUserId], references: [id], onDelete: SetNull)
+  createdByPartner BusinessPartner? @relation(fields: [createdByPartnerId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime  @default(now())
+  expenses  Expense[]
+
+  @@index([tenantId, projectId, category])
+  @@index([tenantId, createdAt])
+  @@index([projectId, createdAt])
+}
+
+// Gastos (Expense) con soporte documental
+
+model Expense {
+  id String @id @default(uuid())
+
+  tenantId  String
+  projectId String
+
+  status ExpenseStatus @default(DRAFT)
+
+  amount       Decimal
+  currencyCode String
+
+  concept String?
+  notes   String?
+
+  vendorPartnerId String?
+
+  incurredAt DateTime?
+  paidAt     DateTime?
+
+  documentId String?
+
+  createdByUserId    String?
+  createdByPartnerId String?
+
+  tenant   Tenant            @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  project  RemodelingProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  currency Currency          @relation(fields: [currencyCode], references: [code], onDelete: Restrict)
+
+  vendorPartner BusinessPartner? @relation("ExpenseVendorPartner", fields: [vendorPartnerId], references: [id], onDelete: Restrict)
+
+  document ProjectDocument? @relation(fields: [documentId], references: [id], onDelete: SetNull)
+
+  createdByUser    User?            @relation(fields: [createdByUserId], references: [id], onDelete: SetNull)
+  createdByPartner BusinessPartner? @relation("ExpenseCreatedByPartner", fields: [createdByPartnerId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([tenantId, projectId, createdAt])
+  @@index([tenantId, projectId, status])
+  @@index([tenantId, paidAt])
+}
+
+// Reuniones (Calendar)
+
+model Meeting {
+  id String @id @default(uuid())
+
+  tenantId  String
+  projectId String?
+
+  status MeetingStatus @default(DRAFT)
+
+  title       String
+  description String?
+
+  startAt DateTime
+  endAt   DateTime
+
+  // Calendar provider info (llenado por n8n)
+  provider        String? // "google", "microsoft"
+  providerEventId String?
+  calendarLink    String?
+  meetLink        String?
+
+  // participantes
+  attendees Json? // [{name,email,phone}]
+
+  createdByUserId    String?
+  createdByPartnerId String?
+
+  tenant  Tenant             @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  project RemodelingProject? @relation(fields: [projectId], references: [id], onDelete: SetNull)
+
+  createdByUser    User?            @relation(fields: [createdByUserId], references: [id], onDelete: SetNull)
+  createdByPartner BusinessPartner? @relation(fields: [createdByPartnerId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([tenantId, startAt])
+  @@index([tenantId, projectId, startAt])
+  @@index([providerEventId])
+}
+
+// Progreso y ETA (para % y reportes)
+
+model ProjectProgressSnapshot {
+  id String @id @default(uuid())
+
+  tenantId  String
+  projectId String
+
+  method ProgressMethod @default(TASKS_SIMPLE)
+
+  percent    Int // 0..100
+  etaEndDate DateTime?
+
+  // explicación de cómo se calculó (tareas total/done, pesos, etc.)
+  basis Json?
+
+  computedAt DateTime @default(now())
+
+  tenant  Tenant            @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  project RemodelingProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, projectId, computedAt])
+  @@index([projectId, computedAt])
+}
+
+// ------------------------------------------------
+// Master data
+// ------------------------------------------------
+
+model BusinessPartner {
+  id       String @id @default(uuid())
+  tenantId String
+
+  code String
+  type PartnerType
+
+  firstName        String?
+  lastName         String?
+  organizationName String?
+
+  email           String?
+  phone           String?
+  phoneNormalized String?
+
+  birthDate DateTime?
+  // nationalId se elimina (ver Paso 5)
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+
+  roles       BusinessPartnerRole[]
+  identifiers PartnerIdentifier[]
+
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
+  externalIdentities ExternalIdentity[]
+  conversations      Conversation[]
+  messages           Message[]
+  remodelingProjects RemodelingProject[]
+  remodelingTasks    RemodelingTask[]
+  changeOrders       ChangeOrder[]
+  projectDocuments   ProjectDocument[]
+  meetings           Meeting[]
+  expensesAsVendor   Expense[]           @relation("ExpenseVendorPartner")
+  expensesCreatedBy  Expense[]           @relation("ExpenseCreatedByPartner")
+
+  @@unique([tenantId, code])
+  @@index([tenantId])
+  @@index([tenantId, email])
+  @@index([tenantId, phone])
+  @@index([tenantId, code])
+  @@index([tenantId, phoneNormalized])
+}
+
+// ------------------------------------------------
+// Catalog data
+// ------------------------------------------------
+
+model PartnerIdentifier {
+  id        String @id @default(uuid())
+  tenantId  String
+  partnerId String
+
+  type        String // "DNI", "NIF", "SSN", "PASSPORT", etc.
+  value       String
+  countryCode String?
+
+  partner BusinessPartner @relation(fields: [partnerId], references: [id], onDelete: Restrict)
+  country Country?        @relation(fields: [countryCode], references: [code], onDelete: Restrict)
+
+  createdAt DateTime @default(now())
+
+  // Un identificador puede existir en varios tenants (multi-clínica) sin romper BD
+  @@unique([tenantId, type, value])
+  @@index([partnerId])
+  @@index([tenantId, type, value])
+  @@index([countryCode])
+  @@index([tenantId, value])
+}
+
+// Idioma / Locale (BCP-47)
+// Usa códigos tipo: es-ES, fr-BE, nl-BE, de-DE, it-IT, pt-PT.
+
+model Locale {
+  code     String  @id // "es-ES", "fr-BE", "nl-BE"
+  language String // "es", "fr", "nl"
+  region   String? // "ES", "BE", "DE"
+  name     String // "Español (España)"
+  isActive Boolean @default(true)
+
+  tenantsDefault   Tenant[]       @relation("TenantDefaultLocale")
+  tenantsSupported TenantLocale[]
+  // userPreferences  UserPreference[]
+  translations     Translation[]
+}
+
+// Zona horaria (IANA)
+// Ej: Europe/Brussels, Europe/Madrid.
+
+model TimeZone {
+  id       String  @id // usa el propio IANA ID como PK
+  label    String // "Europe/Brussels"
+  isActive Boolean @default(true)
+
+  tenants Tenant[]
+  // userPreferences UserPreference[]
+}
+
+// Moneda (ISO 4217)
+// Ej: EUR, GBP, CHF.
+
+model Currency {
+  code     String  @id // "EUR"
+  name     String
+  symbol   String?
+  decimals Int     @default(2)
+  isActive Boolean @default(true)
+
+  tenants      Tenant[]
+  countries    Country[] // ✅ países cuya moneda oficial es esta
+  changeOrders ChangeOrder[]
+  quotes       Quote[]
+  invoices     Invoice[]
+  payments     Payment[]
+  expenses     Expense[]
+}
+
+// País (ISO 3166-1 alpha-2)
+
+model Country {
+  code     String  @id // "BE"
+  name     String
+  euMember Boolean @default(false)
+  isActive Boolean @default(true)
+
+  currencyCode String
+  currency     Currency @relation(fields: [currencyCode], references: [code], onDelete: Restrict)
+
+  tenants            Tenant[]
+  locations          Location[]
+  partnerIdentifiers PartnerIdentifier[]
+  remodelingProjects RemodelingProject[]
+
+  @@index([currencyCode])
+}
