@@ -1,7 +1,6 @@
 // src/app/(private)/layout.tsx
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
-import { Sidebar } from "@/components";
 import { Topbar } from "@/components";
 import { Footer } from "@/components";
 import type { AuthFailReason } from "@/lib/auth/session";

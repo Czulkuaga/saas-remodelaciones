@@ -157,11 +157,12 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ ok: false, message: "No access to tenant" }, { status: 403 });
     }
 
-    // 6) SINGLE SESSION: revocar sesiones activas previas
+    // 6) SINGLE SESSION PER CHANNEL (WEB): revocar SOLO sesiones WEB activas previas
     const revokeResult = await prisma.session.updateMany({
         where: {
             userId: user.id,
             tenantId,
+            channel: "WEB", // 👈 clave para no tumbar WhatsApp
             revokedAt: null,
             expiresAt: { gt: new Date() },
         },
@@ -175,11 +176,11 @@ export async function POST(req: NextRequest) {
                 userId: user.id,
                 type: "SESSION_REVOKED",
                 success: true,
-                message: "Previous active session(s) revoked due to new login",
+                message: "Previous WEB session(s) revoked due to new WEB login",
                 ip,
                 userAgent,
                 host,
-                metadata: { revokedCount: revokeResult.count },
+                metadata: { channel: "WEB", revokedCount: revokeResult.count },
             },
             select: { id: true },
         });
