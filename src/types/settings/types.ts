@@ -110,6 +110,8 @@ export type TenantSettingsDTO = {
 
   // branding
   branding: TenantBrandingDTO | null;
+  logoUrl?: string;
+  logoName?: string;
 
   // org BP
   orgBP: TenantOrgBPDTO | null;
