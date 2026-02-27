@@ -183,6 +183,36 @@ enum SessionChannel {
   WHATSAPP_FLOW
 }
 
+enum PartnerIdentifierType {
+  // --- Personas (global)
+  NATIONAL_ID // cédula / DNI genérico
+  PASSPORT
+  FOREIGN_ID // cédula de extranjería / residence card
+  DRIVER_LICENSE
+
+  // --- Organizaciones (global)
+  TAX_ID // NIT/RUT/RFC/EIN genérico
+  VAT_ID // VAT (EU)
+
+  // --- LATAM comunes (si quieres más precisión)
+  CO_CC // Colombia cédula ciudadanía
+  CO_CE // Colombia cédula extranjería
+  CO_NIT // Colombia NIT
+  CO_RUT // Colombia RUT (si lo usas como documento separado)
+
+  // --- Otros / custom
+  OTHER
+}
+
+enum LocationUsageType {
+  BILLING // fiscal / facturación
+  SHIPPING // envíos
+  OFFICE // oficina
+  WAREHOUSE // bodega
+  PROJECT_SITE // obra
+  OTHER
+}
+
 // ------------------------------------------------
 // Models
 // ------------------------------------------------
@@ -211,10 +241,14 @@ model Tenant {
   // CORE
   orgUnits      OrgUnit[]
   locations     Location[]
-  partners      BusinessPartner[]
+  partners      BusinessPartner[]  @relation("TenantPartners")
   tenantLocales TenantLocale[]
   numberRanges  NumberRange[]
   memberships   TenantMembership[]
+
+  // BP principal
+  orgBusinessPartnerId String?          @unique
+  orgBusinessPartner   BusinessPartner? @relation("TenantOrgBP", fields: [orgBusinessPartnerId], references: [id], onDelete: SetNull)
 
   // Proyects
   expenses          Expense[]
@@ -222,15 +256,12 @@ model Tenant {
   meetings          Meeting[]
   progressSnapshots ProjectProgressSnapshot[]
 
-  // users      TenantMembership[]
-  roles      Role[]
-  sessions   Session[]
-  auditLogs  AuditLog[]
-  authEvents AuthEvent[]
+  roles         Role[]
+  sessions      Session[]
+  auditLogs     AuditLog[]
+  authEvents    AuthEvent[]
   agentIdentity AgentIdentity[]
 
-  createdAt            DateTime              @default(now())
-  updatedAt            DateTime              @updatedAt
   businessPartnerRoles BusinessPartnerRole[]
   channelAccounts      ChannelAccount[]
   externalIdentities   ExternalIdentity[]
@@ -248,6 +279,29 @@ model Tenant {
   payments             Payment[]
   timelineEvents       TimelineEvent[]
   emailOutboxes        EmailOutbox[]
+  tenantBranding       TenantBranding?
+  partnerIdentifiers       PartnerIdentifier[]
+  businessPartnerLocations BusinessPartnerLocation[]
+
+  createdAt                DateTime                  @default(now())
+  updatedAt                DateTime                  @updatedAt
+}
+
+model TenantBranding {
+  id       String @id @default(uuid())
+  tenantId String @unique
+
+  logoUrl    String?
+  logoName   String?
+  faviconUrl String?
+
+  primaryColor   String? // para futuro theming
+  secondaryColor String?
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model OrgUnit {
@@ -283,18 +337,34 @@ model Location {
   code String
   name String
 
+  // Dirección
   addressLine1 String?
+  addressLine2 String? // ✅ Apto / piso / bloque / interior
+  district     String? // ✅ Barrio / distrito / comuna
+  state        String? // ✅ Departamento / Provincia / Estado
   city         String?
   postalCode   String?
 
   countryCode String?
   country     Country? @relation(fields: [countryCode], references: [code], onDelete: Restrict)
 
+  // Geo (opcional pero MUY útil para obras)
+  latitude  Decimal? @db.Decimal(10, 7)
+  longitude Decimal? @db.Decimal(10, 7)
+
+  // Contacto de sede (opcional)
+  contactName  String?
+  contactPhone String?
+  contactEmail String?
+
   tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Restrict)
 
-  createdAt          DateTime            @default(now())
-  updatedAt          DateTime            @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
   remodelingProjects RemodelingProject[]
+
+  partnerLinks BusinessPartnerLocation[] // ✅ join
 
   @@unique([tenantId, code])
   @@index([tenantId])
@@ -333,6 +403,24 @@ model BusinessPartnerRole {
   @@index([tenantId, role])
   @@index([tenantId, partnerId])
   @@index([role])
+}
+
+model BusinessPartnerLocation {
+  id         String @id @default(uuid())
+  tenantId   String
+  partnerId  String
+  locationId String
+
+  usage     LocationUsageType
+  isPrimary Boolean           @default(false)
+
+  tenant   Tenant          @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  partner  BusinessPartner @relation(fields: [partnerId], references: [id], onDelete: Cascade)
+  location Location        @relation(fields: [locationId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, partnerId, locationId, usage])
+  @@index([tenantId, partnerId])
+  @@index([tenantId, usage])
 }
 
 model Translation {
@@ -377,7 +465,7 @@ model User {
   projectDocuments   ProjectDocument[]
   expenses           Expense[]
   meetings           Meeting[]
-  agentIdentity AgentIdentity[]
+  agentIdentity      AgentIdentity[]
 
   @@index([emailNormalized])
 }
@@ -576,13 +664,13 @@ model AgentIdentity {
 
   // auditoría
   lastAuthAt DateTime?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
 
   tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Restrict)
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  @@unique([tenantId, waId])     // un waId por tenant
+  @@unique([tenantId, waId]) // un waId por tenant
   @@index([tenantId, userId])
   @@index([waId])
   @@index([sessionId])
@@ -1314,6 +1402,7 @@ model BusinessPartner {
 
   code String
   type PartnerType
+  isActive Boolean @default(true)
 
   firstName        String?
   lastName         String?
@@ -1326,23 +1415,25 @@ model BusinessPartner {
   birthDate DateTime?
   // nationalId se elimina (ver Paso 5)
 
-  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  tenant Tenant @relation("TenantPartners", fields: [tenantId], references: [id], onDelete: Restrict)
 
   roles       BusinessPartnerRole[]
   identifiers PartnerIdentifier[]
 
-  createdAt          DateTime            @default(now())
-  updatedAt          DateTime            @updatedAt
-  externalIdentities ExternalIdentity[]
-  conversations      Conversation[]
-  messages           Message[]
-  remodelingProjects RemodelingProject[]
-  remodelingTasks    RemodelingTask[]
-  changeOrders       ChangeOrder[]
-  projectDocuments   ProjectDocument[]
-  meetings           Meeting[]
-  expensesAsVendor   Expense[]           @relation("ExpenseVendorPartner")
-  expensesCreatedBy  Expense[]           @relation("ExpenseCreatedByPartner")
+  createdAt                DateTime                  @default(now())
+  updatedAt                DateTime                  @updatedAt
+  externalIdentities       ExternalIdentity[]
+  conversations            Conversation[]
+  messages                 Message[]
+  remodelingProjects       RemodelingProject[]
+  remodelingTasks          RemodelingTask[]
+  changeOrders             ChangeOrder[]
+  projectDocuments         ProjectDocument[]
+  meetings                 Meeting[]
+  expensesAsVendor         Expense[]                 @relation("ExpenseVendorPartner")
+  expensesCreatedBy        Expense[]                 @relation("ExpenseCreatedByPartner")
+  tenantAsOrg              Tenant?                   @relation("TenantOrgBP")
+  businessPartnerLocations BusinessPartnerLocation[]
 
   @@unique([tenantId, code])
   @@index([tenantId])
@@ -1361,21 +1452,29 @@ model PartnerIdentifier {
   tenantId  String
   partnerId String
 
-  type        String // "DNI", "NIF", "SSN", "PASSPORT", etc.
+  type        PartnerIdentifierType
   value       String
-  countryCode String?
+  valueNorm   String? // opcional: para búsquedas/duplicados
+  countryCode String? // ISO-3166 alpha2, ej "CO", "BE"
 
-  partner BusinessPartner @relation(fields: [partnerId], references: [id], onDelete: Restrict)
-  country Country?        @relation(fields: [countryCode], references: [code], onDelete: Restrict)
+  isPrimary  Boolean @default(false)
+  isVerified Boolean @default(false)
+
+  issuedBy  String? // opcional
+  validFrom DateTime?
+  validTo   DateTime?
+
+  tenant  Tenant          @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  partner BusinessPartner @relation(fields: [partnerId], references: [id], onDelete: Cascade)
 
   createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  country   Country? @relation(fields: [countryCode], references: [code])
 
-  // Un identificador puede existir en varios tenants (multi-clínica) sin romper BD
-  @@unique([tenantId, type, value])
-  @@index([partnerId])
-  @@index([tenantId, type, value])
-  @@index([countryCode])
-  @@index([tenantId, value])
+  @@unique([tenantId, partnerId, type, value])
+  @@index([tenantId, partnerId])
+  @@index([tenantId, type])
+  @@index([tenantId, valueNorm])
 }
 
 // Idioma / Locale (BCP-47)

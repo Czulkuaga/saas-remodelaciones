@@ -295,6 +295,36 @@ export async function getAuthStatus(): Promise<
 }
 
 /**
+ * requireSession()
+ * - Valida sessión, es una extensión de getAuthStatus
+ * - Devuelve la session
+ */
+export async function requireSession() {
+  const res = await getAuthStatus();
+  if (!res.ok) throw new Error(res.reason); // o "UNAUTHENTICATED"
+  return res.session;
+}
+/**
+ * requireTenantId()
+ * - Valida tenant, es una extensión de requireSession()
+ * - Devuelve tenantId
+ */
+export async function requireTenantId(): Promise<string> {
+  const session = await requireSession();
+  return session.tenantId;
+}
+
+/**
+ * requireUserId()
+ * - Valida tenant, es una extensión de requireSession()
+ * - Devuelve userId
+ */
+export async function requireUserId(): Promise<string> {
+  const session = await requireSession();
+  return session.userId;
+}
+
+/**
  * getAuthContext()
  * - Para autorización: devuelve user/tenant/membership + permisos
  * - Si no pasa validación, devuelve null (usa getAuthStatus si necesitas reason)

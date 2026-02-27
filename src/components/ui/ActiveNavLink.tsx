@@ -36,7 +36,7 @@ export function ActiveNavLink({
     const isActive = exact ? current === target : current === target || current.startsWith(`${target}/`);
 
     const base = "flex items-center gap-3 px-3 py-2 rounded-lg transition-colors";
-    const active = activeClassName ?? "bg-[#13ecda]/10 text-[#13ecda] font-medium";
+    const active = activeClassName ?? "bg-fuchsia-500/10 text-fuchsia-500 font-medium";
     const inactive =
         inactiveClassName ??
         "text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800";

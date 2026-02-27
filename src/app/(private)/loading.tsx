@@ -83,7 +83,7 @@ function ContentSkeleton() {
 export default function Loading() {
     return (
         <div className="min-h-screen bg-slate-50 dark:bg-slate-950">
-            <SidebarSkeleton />
+            {/* <SidebarSkeleton /> */}
             <TopbarSkeleton />
             <ContentSkeleton />
         </div>

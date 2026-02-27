@@ -143,17 +143,17 @@ export function Sidebar({ clinic, user }: { clinic: SidebarClinic; user: Sidebar
               <p className="truncate text-xs text-slate-500 dark:text-slate-400">
                 {clinic.slug ?? "—"}
               </p>
-              <span className="inline-flex items-center gap-1 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-bold text-emerald-700 dark:text-emerald-300">
-                <span className="h-1.5 w-1.5 rounded-full bg-emerald-500/90" />
+              <span className="inline-flex items-center gap-1 rounded-full border border-fuchsia-500/30 bg-fuchsia-500/10 px-2 py-0.5 text-[10px] font-bold text-fuchsia-700 dark:text-fuchsia-300">
+                <span className="h-1.5 w-1.5 rounded-full bg-fuchsia-500/90" />
                 Activa
               </span>
             </div>
           </div>
         </div>
 
-        <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50/70 p-3 text-xs text-slate-600 dark:border-slate-800 dark:bg-slate-900/30 dark:text-slate-300">
+        {/* <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50/70 p-3 text-xs text-slate-600 dark:border-slate-800 dark:bg-slate-900/30 dark:text-slate-300">
           Panel de trabajo • Acceso seguro
-        </div>
+        </div> */}
       </div>
 
       {/* Menu */}

@@ -22,3 +22,7 @@ export { KpiGrid } from "./private/dashboard/KpiGrid";
 export { ClinicalAlerts } from "./private/dashboard/ClinicalAlerts";
 export { LastAccessSection } from "./private/dashboard/LastAccessSection";
 export { LastAccessTableSkeleton } from "./private/dashboard/LastAccessTableSkeleton";
+
+// Settrings
+export { TenantSettingsShell } from "./private/settings/TenantSettingsShell";
+export { TenantSettingsSkeleton } from "./private/settings/TenantSettingsSkeleton";
