@@ -5,9 +5,8 @@ import { SidebarGroup } from "./SidebarGroup";
 
 // Icons
 import { MdOutlineDashboard } from "react-icons/md";
-import { FaCalendarAlt, FaRegCalendarAlt, FaUser } from "react-icons/fa";
-import { LuFileSliders } from "react-icons/lu";
-import { RiAdminFill, RiAdminLine, RiDashboardLine } from "react-icons/ri";
+import { FaCalendarAlt, FaUser } from "react-icons/fa";
+import { RiAdminLine } from "react-icons/ri";
 import { GrHost } from "react-icons/gr";
 import { IoMdSettings } from "react-icons/io";
 import { FiSettings } from "react-icons/fi";
@@ -18,10 +17,8 @@ import { MdOutlineSecurity } from "react-icons/md";
 import { FiLink } from "react-icons/fi";
 import { FaFileInvoiceDollar } from "react-icons/fa";
 import { RiHistoryLine } from "react-icons/ri";
-
-// (puedes ir descomentando luego si los usas)
-import { FaUserInjured } from "react-icons/fa";
-import { FaUserMd, FaFileMedicalAlt } from "react-icons/fa";
+import { FaBuildingCircleArrowRight } from "react-icons/fa6";
+import { LiaUsersCogSolid } from "react-icons/lia";
 
 export type SidebarClinic = { name: string; slug?: string | null };
 export type SidebarUser = { name: string; email: string };
@@ -34,12 +31,6 @@ const MAIN: NavItem[] = [
     href: "/dashboard",
     icon: <MdOutlineDashboard size={20} />,
     label: "Inicio",
-  },
-  {
-    key: "workspace",
-    href: "/workspace",
-    icon: <RiDashboardLine size={20} />,
-    label: "Panel de trabajo",
   },
   {
     key: "calendar",
@@ -87,29 +78,41 @@ const ORG_SECTIONS = [
         label: "Roles y permisos",
         icon: <MdOutlineSecurity size={18} />,
       },
+      {
+        key: "projects",
+        href: "/projects",
+        label: "Proyectos de remodelación",
+        icon: <FaBuildingCircleArrowRight size={18} />,
+      },
+      {
+        key: "bp",
+        href: "/business-partner",
+        label: "Terceros",
+        icon: <LiaUsersCogSolid size={18}/>,
+      },
     ],
   },
   {
     title: "Configuración",
     items: [
-      {
-        key: "organization",
-        href: "/admin/organization",
-        label: "Datos de la organización",
-        icon: <FiSettings size={18} />,
-      },
+      // {
+      //   key: "organization",
+      //   href: "/admin/organization",
+      //   label: "Datos de la organización",
+      //   icon: <FiSettings size={18} />,
+      // },
       {
         key: "integrations",
         href: "/admin/integrations",
         label: "Integraciones",
         icon: <FiLink size={18} />,
       },
-      {
-        key: "billing",
-        href: "/admin/billing",
-        label: "Facturación",
-        icon: <FaFileInvoiceDollar size={18} />,
-      },
+      // {
+      //   key: "billing",
+      //   href: "/admin/billing",
+      //   label: "Facturación",
+      //   icon: <FaFileInvoiceDollar size={18} />,
+      // },
     ],
   },
   {

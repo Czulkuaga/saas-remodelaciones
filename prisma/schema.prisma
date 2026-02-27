@@ -159,6 +159,15 @@ enum ProjectDocumentCategory {
   OTHER
 }
 
+enum ProjectPartnerRole {
+  CLIENT
+  CONTRACTOR
+  ARCHITECT
+  ENGINEER
+  SUPPLIER
+  STAFF
+}
+
 enum ExpenseStatus {
   DRAFT
   CONFIRMED
@@ -262,29 +271,30 @@ model Tenant {
   authEvents    AuthEvent[]
   agentIdentity AgentIdentity[]
 
-  businessPartnerRoles BusinessPartnerRole[]
-  channelAccounts      ChannelAccount[]
-  externalIdentities   ExternalIdentity[]
-  conversations        Conversation[]
-  messages             Message[]
-  messageAttachments   MessageAttachment[]
-  inboundEvents        InboundEvent[]
-  pendingActions       PendingAction[]
-  remodelingProjects   RemodelingProject[]
-  remodelingTasks      RemodelingTask[]
-  changeOrders         ChangeOrder[]
-  quotes               Quote[]
-  quoteLines           QuoteLine[]
-  invoices             Invoice[]
-  payments             Payment[]
-  timelineEvents       TimelineEvent[]
-  emailOutboxes        EmailOutbox[]
-  tenantBranding       TenantBranding?
+  businessPartnerRoles     BusinessPartnerRole[]
+  channelAccounts          ChannelAccount[]
+  externalIdentities       ExternalIdentity[]
+  conversations            Conversation[]
+  messages                 Message[]
+  messageAttachments       MessageAttachment[]
+  inboundEvents            InboundEvent[]
+  pendingActions           PendingAction[]
+  remodelingProjects       RemodelingProject[]
+  remodelingTasks          RemodelingTask[]
+  changeOrders             ChangeOrder[]
+  quotes                   Quote[]
+  quoteLines               QuoteLine[]
+  invoices                 Invoice[]
+  payments                 Payment[]
+  timelineEvents           TimelineEvent[]
+  emailOutboxes            EmailOutbox[]
+  tenantBranding           TenantBranding?
   partnerIdentifiers       PartnerIdentifier[]
   businessPartnerLocations BusinessPartnerLocation[]
 
-  createdAt                DateTime                  @default(now())
-  updatedAt                DateTime                  @updatedAt
+  createdAt                 DateTime                   @default(now())
+  updatedAt                 DateTime                   @updatedAt
+  remodelingProjectPartners RemodelingProjectPartner[]
 }
 
 model TenantBranding {
@@ -958,9 +968,10 @@ model RemodelingProject {
   meetings          Meeting[]
   progressSnapshots ProjectProgressSnapshot[]
 
-  createdAt     DateTime      @default(now())
-  updatedAt     DateTime      @updatedAt
-  emailOutboxes EmailOutbox[]
+  createdAt                 DateTime                   @default(now())
+  updatedAt                 DateTime                   @updatedAt
+  emailOutboxes             EmailOutbox[]
+  projectPartners RemodelingProjectPartner[]
 
   @@unique([tenantId, code])
   @@index([tenantId, status])
@@ -1392,6 +1403,27 @@ model ProjectProgressSnapshot {
   @@index([projectId, computedAt])
 }
 
+// Asiganción de BP a proyectos
+
+model RemodelingProjectPartner {
+  id        String             @id @default(uuid())
+  tenantId  String
+  projectId String
+  partnerId String
+  role      ProjectPartnerRole
+
+  isPrimary Boolean @default(false)
+
+  tenant  Tenant            @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  project RemodelingProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  partner BusinessPartner   @relation(fields: [partnerId], references: [id], onDelete: Restrict)
+
+  createdAt DateTime @default(now())
+
+  @@unique([tenantId, projectId, partnerId, role])
+  @@index([tenantId, projectId, role])
+}
+
 // ------------------------------------------------
 // Master data
 // ------------------------------------------------
@@ -1400,9 +1432,9 @@ model BusinessPartner {
   id       String @id @default(uuid())
   tenantId String
 
-  code String
-  type PartnerType
-  isActive Boolean @default(true)
+  code     String
+  type     PartnerType
+  isActive Boolean     @default(true)
 
   firstName        String?
   lastName         String?
@@ -1420,20 +1452,21 @@ model BusinessPartner {
   roles       BusinessPartnerRole[]
   identifiers PartnerIdentifier[]
 
-  createdAt                DateTime                  @default(now())
-  updatedAt                DateTime                  @updatedAt
-  externalIdentities       ExternalIdentity[]
-  conversations            Conversation[]
-  messages                 Message[]
-  remodelingProjects       RemodelingProject[]
-  remodelingTasks          RemodelingTask[]
-  changeOrders             ChangeOrder[]
-  projectDocuments         ProjectDocument[]
-  meetings                 Meeting[]
-  expensesAsVendor         Expense[]                 @relation("ExpenseVendorPartner")
-  expensesCreatedBy        Expense[]                 @relation("ExpenseCreatedByPartner")
-  tenantAsOrg              Tenant?                   @relation("TenantOrgBP")
-  businessPartnerLocations BusinessPartnerLocation[]
+  createdAt                 DateTime                   @default(now())
+  updatedAt                 DateTime                   @updatedAt
+  externalIdentities        ExternalIdentity[]
+  conversations             Conversation[]
+  messages                  Message[]
+  remodelingProjects        RemodelingProject[]
+  remodelingTasks           RemodelingTask[]
+  changeOrders              ChangeOrder[]
+  projectDocuments          ProjectDocument[]
+  meetings                  Meeting[]
+  expensesAsVendor          Expense[]                  @relation("ExpenseVendorPartner")
+  expensesCreatedBy         Expense[]                  @relation("ExpenseCreatedByPartner")
+  tenantAsOrg               Tenant?                    @relation("TenantOrgBP")
+  businessPartnerLocations  BusinessPartnerLocation[]
+  remodelingProjectPartners RemodelingProjectPartner[]
 
   @@unique([tenantId, code])
   @@index([tenantId])

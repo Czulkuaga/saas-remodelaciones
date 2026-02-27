@@ -26,3 +26,14 @@ export { LastAccessTableSkeleton } from "./private/dashboard/LastAccessTableSkel
 // Settrings
 export { TenantSettingsShell } from "./private/settings/TenantSettingsShell";
 export { TenantSettingsSkeleton } from "./private/settings/TenantSettingsSkeleton";
+
+// Projects
+export { ProjectCreateFormClient } from "./private/projects/ProjectCreateFormClient"
+export { ProjectTabsClient } from "./private/projects/ProjectTabsClient"
+export { ProjectTasksBoardClient } from "./private/projects/ProjectTasksBoardClient"
+export { ProjectTeamClient } from "./private/projects/ProjectTeamClient"
+
+// Business Partner
+export { BusinessPartnerPage } from "./private/business-partner/BusinessPartnerPage"
+export { BusinessPartnerCreateFormClient } from "./private/business-partner/BusinessPartnerCreateFormClient"
+export { BusinessPartnerEditFormClient } from "./private/business-partner/BusinessPartnerEditFormClient"

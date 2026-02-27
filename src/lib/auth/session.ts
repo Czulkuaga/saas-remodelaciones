@@ -9,8 +9,8 @@ import {
     AuthEventType,
     MembershipCategory,
     TenantStatus,
-    Prisma,
 } from "../../../generated/prisma/client";
+import { redirect } from "next/navigation";
 
 const COOKIE_NAME = process.env.AUTH_COOKIE_NAME ?? "dora_session";
 const PEPPER = process.env.AUTH_TOKEN_PEPPER ?? "dev-pepper";
@@ -103,19 +103,19 @@ async function logAuthEvent(params: {
 }) {
     try {
         await prisma.authEvent.create({
-        data: {
-            tenantId: params.tenantId ?? null,
-            userId: params.userId ?? null,
-            type: params.type,
-            success: params.success,
-            message: params.message ?? null,
-            ip: params.ip ?? null,
-            userAgent: params.userAgent ?? null,
-            host: params.host ?? null,
-            metadata: params.metadata ?? undefined,
-        },
-        select: { id: true },
-    });
+            data: {
+                tenantId: params.tenantId ?? null,
+                userId: params.userId ?? null,
+                type: params.type,
+                success: params.success,
+                message: params.message ?? null,
+                ip: params.ip ?? null,
+                userAgent: params.userAgent ?? null,
+                host: params.host ?? null,
+                metadata: params.metadata ?? undefined,
+            },
+            select: { id: true },
+        });
     } catch {
         // no-op (no rompas auth por logging)
     }
@@ -301,7 +301,13 @@ export async function getAuthStatus(): Promise<
  */
 export async function requireSession() {
   const res = await getAuthStatus();
-  if (!res.ok) throw new Error(res.reason); // o "UNAUTHENTICATED"
+
+  if (!res.ok) {
+    // un solo redirect, con reason dinámico
+    return redirect(`/login?reason=${encodeURIComponent(res.reason)}`);
+  }
+
+  // aquí TS ya sabe que res.ok === true
   return res.session;
 }
 /**
@@ -310,8 +316,8 @@ export async function requireSession() {
  * - Devuelve tenantId
  */
 export async function requireTenantId(): Promise<string> {
-  const session = await requireSession();
-  return session.tenantId;
+    const session = await requireSession();
+    return session.tenantId;
 }
 
 /**
@@ -320,8 +326,8 @@ export async function requireTenantId(): Promise<string> {
  * - Devuelve userId
  */
 export async function requireUserId(): Promise<string> {
-  const session = await requireSession();
-  return session.userId;
+    const session = await requireSession();
+    return session.userId;
 }
 
 /**
