@@ -29,7 +29,7 @@ export default function TenantStatusCard({ initial }: { initial: TenantSettingsD
         <div className="bg-white dark:bg-slate-800 rounded-xl border-2 border-fuchsia-500 dark:border-slate-700 shadow-sm p-6">
             <div className="flex items-center gap-2 mb-6">
                 <FaInfoCircle size={20} className="text-fuchsia-500" />
-                <h3 className="text-sm font-bold uppercase tracking-wider text-slate-400">Estado del Tenant</h3>
+                <h3 className="text-sm font-bold uppercase tracking-wider text-slate-800 dark:text-slate-400">Estado del Tenant</h3>
             </div>
 
             {/* INFO BASE */}

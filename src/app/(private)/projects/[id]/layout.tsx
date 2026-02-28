@@ -26,7 +26,7 @@ export default async function ProjectLayout({
                                 ← Proyectos
                             </Link>
 
-                            <span className="text-[11px] px-2 py-1 rounded-full bg-fuchsia-500/10 text-fuchsia-300 border border-fuchsia-500/20">
+                            <span className="text-[11px] px-2 py-1 rounded-full bg-fuchsia-500/10 text-fuchsia-500 dark:text-fuchsia-300 border border-fuchsia-500/20">
                                 {project.status}
                             </span>
                         </div>

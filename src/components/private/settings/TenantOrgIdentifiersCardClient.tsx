@@ -46,18 +46,18 @@ export default function TenantOrgIdentifiersCardClient({ initial }: Props) {
       {/* Body */}
       <div className="p-6">
         {!orgId ? (
-          <div className="rounded-xl border border-fuchsia-500/20 bg-fuchsia-500/5 px-4 py-4 text-sm text-slate-300">
+          <div className="rounded-xl border border-fuchsia-500/20 bg-fuchsia-500/5 px-4 py-4 text-sm text-slate-800 dark:text-slate-300">
             Primero crea la empresa (BP principal) para registrar documentos.
           </div>
         ) : rows.length === 0 ? (
-          <div className="rounded-xl border border-fuchsia-500/20 bg-fuchsia-500/5 px-4 py-4 text-sm text-slate-300">
+          <div className="rounded-xl border border-fuchsia-500/20 bg-fuchsia-500/5 px-4 py-4 text-sm text-slate-800 dark:text-slate-300">
             Aún no hay identificadores. Agrega al menos uno (ej: NIT/VAT).
           </div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="text-left text-xs uppercase tracking-wider text-slate-400">
+                <tr className="text-left text-xs uppercase tracking-wider text-slate-800 dark:text-slate-400">
                   <th className="py-2 pr-4">Tipo</th>
                   <th className="py-2 pr-4">Número</th>
                   <th className="py-2 pr-4">Estado</th>
@@ -67,26 +67,26 @@ export default function TenantOrgIdentifiersCardClient({ initial }: Props) {
               <tbody className="divide-y divide-slate-200/10">
                 {rows.map((r) => (
                   <tr key={r.id}>
-                    <td className="py-3 pr-4 font-semibold text-slate-200">{r.label}</td>
-                    <td className="py-3 pr-4 font-mono text-slate-200">{r.value}</td>
+                    <td className="py-3 pr-4 font-semibold text-slate-700 dark:text-slate-200">{r.label}</td>
+                    <td className="py-3 pr-4 font-mono text-slate-700 dark:text-slate-200">{r.value}</td>
                     <td className="py-3 pr-4">
                       <div className="flex items-center gap-2">
                         {r.isPrimary ? (
-                          <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-fuchsia-500/10 text-fuchsia-300 border border-fuchsia-500/20">
+                          <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-fuchsia-500/10 text-fuchsia-500 dark:text-fuchsia-300 border border-fuchsia-500/20">
                             Primary
                           </span>
                         ) : (
-                          <span className="text-[11px] px-2 py-0.5 rounded-full bg-slate-500/10 text-slate-300 border border-slate-500/20">
+                          <span className="text-[11px] px-2 py-0.5 rounded-full bg-slate-500/10 text-slate-700 dark:text-slate-300 border border-slate-500/20">
                             Secondary
                           </span>
                         )}
 
                         {r.isVerified ? (
-                          <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-300 border border-emerald-500/20">
+                          <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-500 dark:text-emerald-300 border border-emerald-500/20">
                             Verified
                           </span>
                         ) : (
-                          <span className="text-[11px] px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-300 border border-amber-500/20">
+                          <span className="text-[11px] px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-500 dark:text-amber-300 border border-amber-500/20">
                             Unverified
                           </span>
                         )}
@@ -104,7 +104,7 @@ export default function TenantOrgIdentifiersCardClient({ initial }: Props) {
                                 await setPartnerIdentifierPrimaryAction(r.id);
                               })
                             }
-                            className="text-xs font-semibold text-fuchsia-300 hover:text-fuchsia-200 disabled:opacity-50 cursor-pointer flex gap-1"
+                            className="text-xs font-semibold text-fuchsia-500 dark:text-fuchsia-300 hover:text-fuchsia-200 disabled:opacity-50 cursor-pointer flex gap-1"
                           >
                             <span>
                               <GrCheckboxSelected size={16} />

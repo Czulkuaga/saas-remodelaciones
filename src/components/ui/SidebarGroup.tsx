@@ -46,7 +46,7 @@ export function SidebarGroup({
                         label={label}
                         exact={false}
                         className="pr-2"
-                        activeClassName="bg-indigo-500/10 text-indigo-700 dark:text-indigo-300 font-semibold"
+                        activeClassName="bg-fuchsia-500/10 text-fuchsia-500 dark:text-indigo-300"
                     />
                 </div>
 
@@ -80,7 +80,7 @@ export function SidebarGroup({
                                         label={it.label}
                                         className="text-sm"
                                         inactiveClassName="text-slate-600/90 dark:text-slate-300/90 hover:bg-slate-100 dark:hover:bg-slate-900"
-                                        activeClassName="bg-indigo-500/10 text-indigo-700 dark:text-indigo-300 font-semibold"
+                                        activeClassName="bg-fuchsia-500/10 text-fuchsia-500 dark:text-indigo-300"
                                     />
                                 ))}
                             </div>

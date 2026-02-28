@@ -144,8 +144,8 @@ export function ProjectTasksBoardClient({
                             className={[
                                 "text-xs font-semibold px-3 py-1 rounded-full border",
                                 msg.type === "success"
-                                    ? "text-emerald-200 bg-emerald-500/10 border-emerald-500/20"
-                                    : "text-rose-200 bg-rose-500/10 border-rose-500/20",
+                                    ? "text-emerald-500 dark:text-emerald-200 bg-emerald-500/10 border-emerald-500/20"
+                                    : "text-rose-500 dark:text-rose-200 bg-rose-500/10 border-rose-500/20",
                             ].join(" ")}
                         >
                             {msg.text}
@@ -346,7 +346,7 @@ export function ProjectTasksBoardClient({
 
                             <div className="p-3 space-y-3">
                                 {items.length === 0 ? (
-                                    <div className="rounded-xl border border-fuchsia-500/10 bg-fuchsia-500/5 p-3 text-xs text-slate-500 dark:text-slate-400">
+                                    <div className="rounded-xl border border-fuchsia-500/10 bg-fuchsia-500/5 p-3 text-xs text-slate-700 dark:text-slate-400">
                                         Sin tareas.
                                     </div>
                                 ) : (
@@ -369,15 +369,15 @@ export function ProjectTasksBoardClient({
 
                                                 {/* chips mini */}
                                                 <div className="flex flex-col items-end gap-1 shrink-0">
-                                                    <span className="text-[10px] px-2 py-0.5 rounded-full border border-fuchsia-500/20 bg-fuchsia-500/10 text-fuchsia-200">
+                                                    <span className="text-[10px] px-2 py-0.5 rounded-full border border-fuchsia-500/20 bg-fuchsia-500/10 text-fuchsia-500 dark:text-fuchsia-200">
                                                         {t.priority ?? "—"}
                                                     </span>
-                                                    <span className="text-[10px] px-2 py-0.5 rounded-full border border-slate-500/20 bg-slate-500/10 text-slate-200">
+                                                    <span className="text-[10px] px-2 py-0.5 rounded-full border border-slate-500/20 bg-slate-500/10 text-slate-500 dark:text-slate-200">
                                                         W{t.weight ?? 1}
                                                     </span>
                                                 </div>
                                                 {isOverdue(t) && (
-                                                    <span className="text-[10px] px-2 py-0.5 rounded-full border border-rose-500/20 bg-rose-500/10 text-rose-300">
+                                                    <span className="text-[10px] px-2 py-0.5 rounded-full border border-rose-500/20 bg-rose-500/10 text-rose-500 dark:text-rose-300">
                                                         Vencida
                                                     </span>
                                                 )}

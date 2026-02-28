@@ -92,7 +92,7 @@ export function ProjectTeamClient({
                     <div>
                         <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100">Equipo del proyecto</h3>
                         <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-                            Agrega Business Partners por rol y marca primary por rol (SAP-like).
+                            Agrega Business Partners por rol y marca primary por rol.
                         </p>
                     </div>
 
@@ -186,30 +186,35 @@ export function ProjectTeamClient({
 
                             <div className="p-3 space-y-3">
                                 {items.length === 0 ? (
-                                    <div className="rounded-xl border border-fuchsia-500/10 bg-fuchsia-500/5 p-3 text-xs text-slate-500 dark:text-slate-400">
+                                    <div className="rounded-xl border border-fuchsia-500/10 bg-fuchsia-500/5 p-3 text-xs text-slate-700 dark:text-slate-400">
                                         Sin partners.
                                     </div>
                                 ) : (
                                     items.map((x) => (
                                         <div key={x.id} className="rounded-xl border border-fuchsia-500/10 bg-slate-50 dark:bg-slate-900/30 p-3">
-                                            <div className="flex items-start justify-between gap-3">
-                                                <div>
-                                                    <p className="text-sm font-bold text-slate-900 dark:text-slate-100">
-                                                        {x.partner.organizationName ??
-                                                            [x.partner.firstName, x.partner.lastName].filter(Boolean).join(" ") ??
-                                                            x.partner.code}
+                                            <div className="flex items-start justify-between gap-2">
+                                                {/* LEFT CONTENT */}
+                                                <div className="min-w-0 flex-1">
+                                                    <p className="text-sm font-bold text-slate-900 dark:text-slate-100 flex flex-wrap items-center gap-2">
+                                                        <span className="truncate">
+                                                            {x.partner.organizationName ??
+                                                                [x.partner.firstName, x.partner.lastName].filter(Boolean).join(" ") ??
+                                                                x.partner.code}
+                                                        </span>
                                                         {x.isPrimary ? (
-                                                            <span className="ml-2 text-[10px] px-2 py-0.5 rounded-full bg-fuchsia-500/10 border border-fuchsia-500/20 text-fuchsia-200">
+                                                            <span className="shrink-0 text-[10px] px-2 py-0.5 rounded-full bg-fuchsia-500/10 border border-fuchsia-500/20 text-fuchsia-500 dark:text-fuchsia-200">
                                                                 PRIMARY
                                                             </span>
                                                         ) : null}
                                                     </p>
-                                                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-                                                        {x.partner.email ?? "—"} {x.partner.phone ? `• ${x.partner.phone}` : ""}
+                                                    <p className="text-xs text-slate-700 dark:text-slate-400 mt-1 truncate">
+                                                        {x.partner.email ?? "—"}{" "}
+                                                        {x.partner.phone ? `• ${x.partner.phone}` : ""}
                                                     </p>
                                                 </div>
 
-                                                <div className="flex gap-2 mt-1">
+                                                {/* RIGHT ACTIONS */}
+                                                <div className="flex shrink-0 gap-2">
                                                     <SimpleTooltip text="Eliminar del proyecto">
                                                         <button
                                                             type="button"
@@ -227,7 +232,7 @@ export function ProjectTeamClient({
                                                                     router.refresh();
                                                                 });
                                                             }}
-                                                            className="text-xs font-bold text-rose-200 hover:text-rose-100 rounded-lg px-2 py-1 border border-rose-500/20 bg-rose-500/10 cursor-pointer"
+                                                            className="flex items-center justify-center size-9 rounded-lg border border-rose-500/20 bg-rose-500/10 text-rose-500 hover:bg-rose-500/20 transition cursor-pointer"
                                                         >
                                                             <GrTrash size={18} />
 
@@ -258,10 +263,10 @@ export function ProjectTeamClient({
                                                                 });
                                                             }}
                                                             className={[
-                                                                "text-xs font-bold rounded-lg px-2 py-1 border cursor-pointer",
+                                                                "flex items-center justify-center size-9 rounded-lg border transition cursor-pointer",
                                                                 x.isPrimary
-                                                                    ? "text-slate-200 border-slate-400/20 bg-slate-500/10 hover:bg-slate-500/15"
-                                                                    : "text-fuchsia-200 border-fuchsia-500/20 bg-fuchsia-500/10 hover:bg-fuchsia-500/15",
+                                                                    ? "text-slate-700 dark:text-slate-200 border-slate-400/20 bg-slate-500/10 hover:bg-slate-500/15"
+                                                                    : "text-fuchsia-500 dark:text-fuchsia-200 border-fuchsia-500/20 bg-fuchsia-500/10 hover:bg-fuchsia-500/15",
                                                             ].join(" ")}
                                                         >
                                                             {x.isPrimary ? <GrCheckbox size={18} /> : <GrCheckboxSelected size={18} />}

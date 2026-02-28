@@ -74,7 +74,7 @@ export default function TenantBrandingCardClient({ initial }: { initial: TenantS
 
   return (
     <div className="bg-white dark:bg-slate-800 rounded-xl border-2 border-fuchsia-500 dark:border-slate-700 shadow-sm">
-      <h3 className="text-sm font-bold uppercase tracking-wider text-slate-400 mb-6 mt-4 ml-4">Marca del Tenant</h3>
+      <h3 className="text-sm font-bold uppercase tracking-wider text-slate-800 dark:text-slate-400 mb-6 mt-4 ml-4">Marca del Tenant</h3>
 
       <div className="flex flex-col items-center text-center">
         <div className="size-32 rounded-xl bg-slate-100 dark:bg-slate-900 border-2 border-dashed border-slate-300 dark:border-fuchsia-500/20 flex items-center justify-center mb-4 overflow-hidden relative group">
@@ -128,7 +128,7 @@ export default function TenantBrandingCardClient({ initial }: { initial: TenantS
             type="button"
             onClick={handleDelete}
             disabled={isPending}
-            className="text-slate-400 hover:text-red-400 pt-2 pb-4 text-xs font-medium cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
+            className="text-slate-800 dark:text-slate-400 hover:text-red-400 pt-2 pb-4 text-xs font-medium cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
           >
             Eliminar Logo
           </button>
