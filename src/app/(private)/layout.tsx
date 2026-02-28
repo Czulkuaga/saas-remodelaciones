@@ -75,7 +75,7 @@ export default async function PrivateLayout({
                 user={{ name: user?.name ?? "User", email: user?.email ?? "—" }}
             />
 
-            <main className="flex flex-1 flex-col lg:ml-64">
+            <main className="flex flex-col min-w-0 flex-1 lg:ml-64">
                 <Topbar />
                 <div className="p-4 sm:p-6 lg:p-8">{children}</div>
                 <Footer clinicName={tenant.name} />

@@ -9,7 +9,7 @@ export default function BusinessPartnerKpis({ kpis }: { kpis: BusinessPartnerKpi
   ];
 
   return (
-    <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+    <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
       {cards.map((c) => (
         <div key={c.label} className="rounded-2xl border border-fuchsia-500/20 bg-slate-900/40 p-4 shadow-sm">
           <p className="text-xs uppercase tracking-wider text-slate-400 font-bold">{c.label}</p>

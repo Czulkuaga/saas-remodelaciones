@@ -29,20 +29,22 @@ export async function BusinessPartnerPage({
     ]);
 
     return (
-        <section className="flex-1 overflow-y-auto p-8">
-            <div className="mx-auto space-y-6">
+        <section className="flex-1 min-w-0 overflow-y-auto px-4 py-6 sm:px-6 lg:px-8">
+            <div className="mx-auto max-w-7xl space-y-6">
                 {/* Header */}
-                <div className="flex items-end justify-between gap-4">
-                    <div>
-                        <h2 className="text-2xl font-bold tracking-tight text-slate-100">Terceros</h2>
-                        <p className="text-slate-400 text-sm mt-1">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+                    <div className="min-w-0">
+                        <h2 className="text-2xl font-bold tracking-tight text-slate-100">
+                            Terceros
+                        </h2>
+                        <p className="mt-1 text-sm text-slate-400">
                             Catálogo de Business Partners (personas y organizaciones) para proyectos, compras y operaciones.
                         </p>
                     </div>
 
                     <a
                         href="/business-partner/new"
-                        className="transition ease-in-out flex px-4 py-2 items-center justify-center rounded-md bg-linear-to-br from-indigo-500 to-fuchsia-500 text-sm font-bold text-white shadow-md shadow-indigo-500/20 hover:from-indigo-600 hover:to-fuchsia-600"
+                        className="w-full sm:w-auto transition ease-in-out flex px-4 py-2 items-center justify-center rounded-md bg-linear-to-br from-indigo-500 to-fuchsia-500 text-sm font-bold text-white shadow-md shadow-indigo-500/20 hover:from-indigo-600 hover:to-fuchsia-600"
                     >
                         Crear tercero
                     </a>
@@ -51,15 +53,15 @@ export async function BusinessPartnerPage({
                 {/* KPIs */}
                 <BusinessPartnerKpis kpis={kpis} />
 
-                {/* Filters (client) */}
-                <BusinessPartnerFiltersClient
-                    initial={{ q, type, status, pageSize }}
-                />
+                {/* Filters */}
+                <BusinessPartnerFiltersClient initial={{ q, type, status, pageSize }} />
 
-                {/* Table (server) */}
-                <BusinessPartnerTable items={list.items} />
+                {/* Table */}
+                <div className="overflow-x-auto">
+                    <BusinessPartnerTable items={list.items} />
+                </div>
 
-                {/* Pagination (server links) */}
+                {/* Pagination */}
                 <BusinessPartnerPagination
                     total={list.total}
                     page={list.page}

@@ -13,8 +13,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "SAAS Healtech",
-    description: "Plataforma de gestão para clínicas de saúde",
+  title: "SAAS Remodelaciones",
+    description: "Plataforma de gestão para remodelaciones inmobiliarias",
 };
 
 export default function RootLayout({
