@@ -116,14 +116,6 @@ enum ProjectStatus {
   CANCELLED
 }
 
-enum TaskStatus {
-  TODO
-  IN_PROGRESS
-  DONE
-  BLOCKED
-  CANCELLED
-}
-
 enum ChangeOrderStatus {
   DRAFT
   PENDING_APPROVAL
@@ -220,6 +212,31 @@ enum LocationUsageType {
   WAREHOUSE // bodega
   PROJECT_SITE // obra
   OTHER
+}
+
+enum TaskStatus {
+  TODO
+  IN_PROGRESS
+  DONE
+  BLOCKED
+  CANCELLED
+}
+
+enum TaskPriority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+enum TaskCategory {
+  GENERAL
+  PROCUREMENT // compras
+  CONSTRUCTION // obra
+  ELECTRICAL
+  PLUMBING
+  FINISHING // acabados
+  ADMIN // administrativo
 }
 
 // ------------------------------------------------
@@ -524,14 +541,16 @@ model RolePermission {
 model TenantMembership {
   id String @id @default(uuid())
 
-  tenantId String
-  userId   String
+  tenantId  String
+  userId    String
+  partnerId String?
 
   category MembershipCategory
   isActive Boolean            @default(true)
 
-  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Restrict)
-  user   User   @relation(fields: [userId], references: [id], onDelete: Restrict)
+  tenant  Tenant           @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  user    User             @relation(fields: [userId], references: [id], onDelete: Restrict)
+  partner BusinessPartner? @relation(fields: [partnerId], references: [id], onDelete: Restrict)
 
   roles     MembershipRole[]
   auditLogs AuditLog[]
@@ -968,9 +987,9 @@ model RemodelingProject {
   meetings          Meeting[]
   progressSnapshots ProjectProgressSnapshot[]
 
-  createdAt                 DateTime                   @default(now())
-  updatedAt                 DateTime                   @updatedAt
-  emailOutboxes             EmailOutbox[]
+  createdAt       DateTime                   @default(now())
+  updatedAt       DateTime                   @updatedAt
+  emailOutboxes   EmailOutbox[]
   projectPartners RemodelingProjectPartner[]
 
   @@unique([tenantId, code])
@@ -990,7 +1009,9 @@ model RemodelingTask {
   title       String
   description String?
 
-  weight Int @default(1)
+  weight   Int          @default(1)
+  priority TaskPriority @default(MEDIUM) // ✅ nuevo
+  category TaskCategory @default(GENERAL) // ✅ nuevo
 
   status  TaskStatus @default(TODO)
   dueDate DateTime?
@@ -1467,6 +1488,7 @@ model BusinessPartner {
   tenantAsOrg               Tenant?                    @relation("TenantOrgBP")
   businessPartnerLocations  BusinessPartnerLocation[]
   remodelingProjectPartners RemodelingProjectPartner[]
+  tenantMemberships         TenantMembership[]
 
   @@unique([tenantId, code])
   @@index([tenantId])

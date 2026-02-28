@@ -6,29 +6,29 @@ function Skel({ className }: { className: string }) {
     );
 }
 
-function SidebarSkeleton() {
-    return (
-        <aside className="w-64 border-r border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 flex flex-col fixed h-full z-50 p-6 space-y-6">
-            <div className="flex items-center gap-3">
-                <Skel className="h-10 w-10 rounded-lg" />
-                <div className="space-y-2">
-                    <Skel className="h-4 w-32" />
-                    <Skel className="h-3 w-20" />
-                </div>
-            </div>
+// function SidebarSkeleton() {
+//     return (
+//         <aside className="w-64 border-r border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 flex flex-col fixed h-full z-50 p-6 space-y-6">
+//             <div className="flex items-center gap-3">
+//                 <Skel className="h-10 w-10 rounded-lg" />
+//                 <div className="space-y-2">
+//                     <Skel className="h-4 w-32" />
+//                     <Skel className="h-3 w-20" />
+//                 </div>
+//             </div>
 
-            <div className="space-y-3 mt-6">
-                {Array.from({ length: 6 }).map((_, i) => (
-                    <Skel key={i} className="h-10 w-full rounded-lg" />
-                ))}
-            </div>
-        </aside>
-    );
-}
+//             <div className="space-y-3 mt-6">
+//                 {Array.from({ length: 6 }).map((_, i) => (
+//                     <Skel key={i} className="h-10 w-full rounded-lg" />
+//                 ))}
+//             </div>
+//         </aside>
+//     );
+// }
 
 function TopbarSkeleton() {
     return (
-        <header className="h-16 border-b border-slate-200 dark:border-slate-800 bg-white/80 dark:bg-slate-950/80 backdrop-blur-md sticky top-0 z-40 px-8 flex items-center justify-between ml-64">
+        <header className="h-16 border-b border-slate-200 dark:border-slate-800 bg-white/80 dark:bg-slate-950/80 backdrop-blur-md sticky top-0 z-40 px-8 flex items-center justify-between">
             <Skel className="h-10 w-96 rounded-lg" />
             <div className="flex items-center gap-4">
                 <Skel className="h-8 w-8 rounded-full" />
@@ -40,7 +40,7 @@ function TopbarSkeleton() {
 
 function ContentSkeleton() {
     return (
-        <div className="p-8 ml-64 space-y-8">
+        <div className="p-8 space-y-8">
             <div>
                 <Skel className="h-8 w-80" />
                 <Skel className="mt-3 h-4 w-96" />

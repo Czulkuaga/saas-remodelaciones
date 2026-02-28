@@ -6,6 +6,7 @@ import { useState, useTransition } from "react";
 import { toggleBusinessPartnerActiveAction } from "@/action/business-partner/business-partner";
 import type { BusinessPartnerListItem } from "@/types/business-partner/types";
 import { MdHideSource, MdOutlineModeStandby, MdOutlineStreetview } from "react-icons/md";
+import { SimpleTooltip } from "@/components/ui/SimpleTooltip"
 
 function badge(active: boolean) {
     return active
@@ -102,7 +103,23 @@ export default function BusinessPartnerTable({ items }: { items: BusinessPartner
                                         </div>
                                     </td>
 
-                                    <td className="px-5 py-3 text-right font-bold">{x.projectsCount}</td>
+                                    <td className="py-3 px-4 text-right">
+                                        <span
+                                            className="font-bold text-slate-100"
+                                            title={`Owner: ${x.projectsAsOwner} • Equipo: ${x.projectsAsTeam}`}
+                                        >
+                                            {x.projectsCount}
+                                        </span>
+
+                                        {(x.projectsAsTeam ?? 0) > 0 && (
+                                            <span
+                                                className="ml-2 text-[10px] px-2 py-0.5 rounded-full border border-fuchsia-500/20 bg-fuchsia-500/10 text-fuchsia-200"
+                                                title={`Este BP está asignado como equipo en ${x.projectsAsTeam} proyecto(s).`}
+                                            >
+                                                TEAM
+                                            </span>
+                                        )}
+                                    </td>
 
                                     <td className="px-5 py-3 text-right">
                                         <span
@@ -115,15 +132,18 @@ export default function BusinessPartnerTable({ items }: { items: BusinessPartner
                                         </span>
                                     </td>
 
-                                    <td className="px-5 py-3 text-right">
+                                    <td className="px-3 py-3 text-right">
                                         <div className="inline-flex items-center gap-3">
-                                            <Link
-                                                href={`/business-partner/${x.id}`}
-                                                className="text-fuchsia-300 hover:text-fuchsia-200 font-bold"
-                                            >
-                                                <MdOutlineStreetview size={18}/>
-                                            </Link>
+                                            <SimpleTooltip text="Ver BP">
+                                                <Link
+                                                    href={`/business-partner/${x.id}`}
+                                                    className="text-fuchsia-300 hover:text-fuchsia-200 font-bold"
+                                                >
+                                                    <MdOutlineStreetview size={18} />
+                                                </Link>
+                                            </SimpleTooltip>
 
+                                            <SimpleTooltip text={x.isActive ? "Deshabilitar" : "Habilitar"}>
                                             <button
                                                 type="button"
                                                 onClick={() => onToggle(x.id)}
@@ -134,9 +154,10 @@ export default function BusinessPartnerTable({ items }: { items: BusinessPartner
                                                 {pending && rowPending === x.id
                                                     ? "..."
                                                     : x.isActive
-                                                        ? <MdHideSource size={18}/>
-                                                        : <MdOutlineModeStandby size={18}/>}
+                                                        ? <MdHideSource size={18} />
+                                                        : <MdOutlineModeStandby size={18} />}
                                             </button>
+                                            </SimpleTooltip>
                                         </div>
                                     </td>
                                 </tr>

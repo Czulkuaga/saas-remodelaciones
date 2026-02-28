@@ -8,8 +8,11 @@ export type BusinessPartnerListItem = {
     email: string | null;
     phone: string | null;
     isActive: boolean;
-    projectsCount: number;
     createdAt: Date;
+
+    projectsCount: number;     // total (owner + team)
+    projectsAsOwner: number;   // bp.remodelingProjects
+    projectsAsTeam: number;    // bp.remodelingProjectPartners
 };
 
 export type BusinessPartnerKpisDTO = {

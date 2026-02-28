@@ -15,7 +15,22 @@ export default async function ProjectTeamPage({ params }: { params: Promise<{ id
     const partners = await prisma.businessPartner.findMany({
         where: { tenantId, isActive: true },
         orderBy: [{ organizationName: "asc" }, { firstName: "asc" }],
-        select: { id: true, code: true, type: true, organizationName: true, firstName: true, lastName: true, email: true, phone: true },
+        select: {
+            id: true,
+            code: true,
+            type: true,
+            organizationName: true,
+            firstName: true,
+            lastName: true,
+            email: true,
+            phone: true,
+
+            // ✅ traer roles maestro del BP
+            roles: {
+                select: { role: true },
+                orderBy: { role: "asc" },
+            },
+        },
     });
 
     return <ProjectTeamClient projectId={id} initialTeam={team} partners={partners} />;

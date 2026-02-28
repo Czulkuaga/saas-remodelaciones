@@ -66,12 +66,12 @@ const ORG_SECTIONS = [
         label: "Usuarios",
         icon: <FaUsers size={18} />,
       },
-      {
-        key: "teams",
-        href: "/admin/teams",
-        label: "Equipos",
-        icon: <RiTeamLine size={18} />,
-      },
+      // {
+      //   key: "teams",
+      //   href: "/admin/teams",
+      //   label: "Equipos",
+      //   icon: <RiTeamLine size={18} />,
+      // },
       {
         key: "roles",
         href: "/admin/roles",

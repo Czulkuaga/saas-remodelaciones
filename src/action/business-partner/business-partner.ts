@@ -4,7 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { requireTenantId } from "@/lib/auth/session";
 import type { BusinessPartnerKpisDTO, BusinessPartnerListResponse } from "@/types/business-partner/types";
 // import type { PartnerType } from "../../../generated/prisma/client";
-import { NumberRangeObject, PartnerType } from "../../../generated/prisma/enums";
+import { NumberRangeObject, PartnerType, BPRoleType } from "../../../generated/prisma/enums";
 import { nextNumberRangeCode } from "@/lib/number-range";
 
 type Query = {
@@ -17,6 +17,7 @@ type Query = {
 
 type CreateBPInput = {
     type: PartnerType;
+    roles: BPRoleType[];
     organizationName?: string;
     firstName?: string;
     lastName?: string;
@@ -28,6 +29,7 @@ type CreateBPInput = {
 type UpdateBPInput = {
     id: string;
     type: PartnerType;
+    roles: BPRoleType[];
     organizationName?: string;
     firstName?: string;
     lastName?: string;
@@ -49,14 +51,24 @@ function normalizePhone(phone?: string) {
     return cleaned.replace(/\s+/g, " ");
 }
 
-export async function createBusinessPartnerAction(input: CreateBPInput): Promise<
-    | { ok: true; id: string }
-    | { ok: false; message: string }
-> {
+export async function createBusinessPartnerAction(
+    input: CreateBPInput
+): Promise<{ ok: true; id: string } | { ok: false; message: string }> {
     const tenantId = await requireTenantId();
 
     const type = input.type;
     const isActive = input.isActive ?? true;
+
+    // ✅ aquí estaba el faltante
+    const roles: BPRoleType[] = Array.isArray(input.roles)
+        ? input.roles
+            .map((r) => String(r).trim())
+            .filter(Boolean) as any[] // si quieres, tipéalo a BPRoleType[]
+        : [];
+
+    if (roles.length === 0) {
+        return { ok: false, message: "Selecciona al menos un rol para el tercero." };
+    }
 
     const organizationName = input.organizationName?.trim() || null;
     const firstName = input.firstName?.trim() || null;
@@ -73,7 +85,6 @@ export async function createBusinessPartnerAction(input: CreateBPInput): Promise
     const phone = normalizePhone(input.phone);
     const phoneNormalized = phone ? phone.replace(/\D/g, "") : null;
 
-    // ✅ SAP-like code
     const code = await nextNumberRangeCode({
         tenantId,
         object: NumberRangeObject.BUSINESS_PARTNER,
@@ -82,23 +93,36 @@ export async function createBusinessPartnerAction(input: CreateBPInput): Promise
         defaultNextNo: 1,
     });
 
-    const bp = await prisma.businessPartner.create({
-        data: {
-            tenantId,
-            code,
-            type,
-            organizationName,
-            firstName,
-            lastName,
-            email,
-            phone,
-            phoneNormalized,
-            isActive,
-        },
-        select: { id: true },
+    const result = await prisma.$transaction(async (tx) => {
+        const bp = await tx.businessPartner.create({
+            data: {
+                tenantId,
+                code,
+                type,
+                organizationName,
+                firstName,
+                lastName,
+                email,
+                phone,
+                phoneNormalized,
+                isActive,
+            },
+            select: { id: true },
+        });
+
+        await tx.businessPartnerRole.createMany({
+            data: roles.map((role) => ({
+                tenantId,
+                partnerId: bp.id,
+                role, // enum BPRoleType
+            })),
+            skipDuplicates: true,
+        });
+
+        return bp;
     });
 
-    return { ok: true, id: bp.id };
+    return { ok: true, id: result.id };
 }
 
 export async function getBusinessPartnerByIdAction(id: string) {
@@ -119,17 +143,29 @@ export async function getBusinessPartnerByIdAction(id: string) {
             createdAt: true,
             updatedAt: true,
 
+            // ✅ TRAER ROLES
+            roles: {
+                select: { role: true },
+                orderBy: { role: "asc" },
+            },
+
             _count: {
                 select: {
                     remodelingProjects: true,
                     remodelingTasks: true,
+                    remodelingProjectPartners: true,
                 },
             },
         },
     });
 
     if (!bp) return null;
-    return bp;
+
+    // ✅ opcional: devolver roles como array plano
+    return {
+        ...bp,
+        roles: bp.roles.map((r) => r.role),
+    };
 }
 
 export async function updateBusinessPartnerAction(input: UpdateBPInput): Promise<
@@ -150,22 +186,44 @@ export async function updateBusinessPartnerAction(input: UpdateBPInput): Promise
         return { ok: false, message: "La persona requiere al menos nombre o apellido." };
     }
 
+    const roles = Array.isArray(input.roles) ? input.roles : [];
+    if (roles.length === 0) {
+        return { ok: false, message: "Selecciona al menos un rol para el tercero." };
+    }
+
     const email = input.email?.trim() || null;
     const phone = normalizePhone(input.phone);
     const phoneNormalized = phone ? phone.replace(/\D/g, "") : null;
 
-    await prisma.businessPartner.updateMany({
-        where: { tenantId, id: input.id },
-        data: {
-            type,
-            organizationName,
-            firstName,
-            lastName,
-            email,
-            phone,
-            phoneNormalized,
-            isActive: input.isActive ?? true,
-        },
+    await prisma.$transaction(async (tx) => {
+        await tx.businessPartner.updateMany({
+            where: { tenantId, id: input.id },
+            data: {
+                type,
+                organizationName,
+                firstName,
+                lastName,
+                email,
+                phone,
+                phoneNormalized,
+                isActive: input.isActive ?? true,
+            },
+        });
+
+        // elimina roles que ya no estén
+        await tx.businessPartnerRole.deleteMany({
+            where: {
+                tenantId,
+                partnerId: input.id,
+                role: { notIn: roles },
+            },
+        });
+
+        // crea los que falten
+        await tx.businessPartnerRole.createMany({
+            data: roles.map((role) => ({ tenantId, partnerId: input.id, role })),
+            skipDuplicates: true,
+        });
     });
 
     return { ok: true };
@@ -284,19 +342,19 @@ export async function getBusinessPartnerListAction(input: Query): Promise<Busine
                 _count: {
                     select: {
                         remodelingProjects: true,
-                        // projectPartners: true, // si luego lo agregas
+                        remodelingProjectPartners: true, // ✅ team count
                     },
                 },
             },
         }),
     ]);
-
     const items = rows.map((p) => {
         const displayName =
             p.organizationName ??
             ([p.firstName, p.lastName].filter(Boolean).join(" ") || p.code);
 
-        const projectsCount = p._count.remodelingProjects;
+        const projectsAsOwner = p._count.remodelingProjects;
+        const projectsAsTeam = p._count.remodelingProjectPartners;
 
         return {
             id: p.id,
@@ -306,7 +364,9 @@ export async function getBusinessPartnerListAction(input: Query): Promise<Busine
             email: p.email ?? null,
             phone: p.phone ?? null,
             isActive: p.isActive,
-            projectsCount,
+            projectsAsOwner,
+            projectsAsTeam,
+            projectsCount: projectsAsOwner + projectsAsTeam, // ✅ total visible
             createdAt: p.createdAt,
         };
     });

@@ -1,6 +1,8 @@
 // Página en construcción
 export { PageUnderConstruction } from "./ui/PageUnderConstruction";
 
+//UI
+export { SimpleTooltip } from "./ui/SimpleTooltip"
 
 //Login
 export { FormLogin } from "./login/FormLogin";

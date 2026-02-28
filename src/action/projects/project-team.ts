@@ -2,10 +2,23 @@
 
 import { prisma } from "@/lib/prisma";
 import { requireTenantId } from "@/lib/auth/session";
+import { BPRoleType } from "../../../generated/prisma/enums";
 
 type ActionResult =
     | { ok: true }
     | { ok: false; message: string };
+
+// function mapProjectRoleToBpRole(role: string): BPRoleType | null {
+//     switch (role) {
+//         case "CLIENT": return BPRoleType.CLIENT;
+//         case "CONTRACTOR": return BPRoleType.CONTRACTOR;
+//         case "ARCHITECT": return BPRoleType.ARCHITECT;
+//         case "ENGINEER": return BPRoleType.ENGINEER;
+//         case "SUPPLIER": return BPRoleType.SUPPLIER;
+//         case "STAFF": return BPRoleType.STAFF;
+//         default: return null;
+//     }
+// }
 
 export async function listProjectPartnersAction(projectId: string) {
     const tenantId = await requireTenantId();
@@ -39,36 +52,49 @@ export async function addProjectPartnerAction(projectId: string, formData: FormD
 
     const role = String(formData.get("role") ?? "").trim();
     const partnerId = String(formData.get("partnerId") ?? "").trim();
-    const isPrimary = formData.get("isPrimary") === "on" || formData.get("isPrimary") === "true";
+
+    // ✅ lo que el usuario pidió explícitamente
+    const wantsPrimary =
+        formData.get("isPrimary") === "on" || formData.get("isPrimary") === "true";
 
     if (!role) return { ok: false, message: "Falta el rol." };
     if (!partnerId) return { ok: false, message: "Selecciona un Business Partner." };
 
-    // (Opcional) valida que exista el project dentro del tenant
     const project = await prisma.remodelingProject.findFirst({
         where: { id: projectId, tenantId },
         select: { id: true },
     });
     if (!project) return { ok: false, message: "Proyecto no encontrado o sin acceso." };
 
-    // (Opcional) valida partner dentro del tenant
     const partner = await prisma.businessPartner.findFirst({
-        where: { id: partnerId, tenantId },
+        where: { id: partnerId, tenantId, isActive: true },
         select: { id: true },
     });
     if (!partner) return { ok: false, message: "Business Partner no válido para este tenant." };
 
     try {
         await prisma.$transaction(async (tx) => {
-            if (isPrimary) {
-                // ✅ SAP rule: 1 primary por rol en el proyecto
+            // ✅ 1) ¿ya existe primary para este rol?
+            const existingPrimary = await tx.remodelingProjectPartner.findFirst({
+                where: { tenantId, projectId, role: role as any, isPrimary: true },
+                select: { id: true },
+            });
+
+            // ✅ 2) primary final:
+            // - si user marcó primary => true
+            // - si NO marcó y NO existe primary => true (auto)
+            // - si NO marcó y SÍ existe primary => false
+            const finalIsPrimary = wantsPrimary || !existingPrimary;
+
+            // ✅ 3) si finalIsPrimary, desmarcamos otros primary del rol
+            if (finalIsPrimary) {
                 await tx.remodelingProjectPartner.updateMany({
                     where: { tenantId, projectId, role: role as any, isPrimary: true },
                     data: { isPrimary: false },
                 });
             }
 
-            // ✅ upsert por unique compuesta (tenantId, projectId, partnerId, role)
+            // ✅ 4) upsert (no duplicados)
             await tx.remodelingProjectPartner.upsert({
                 where: {
                     tenantId_projectId_partnerId_role: {
@@ -83,17 +109,16 @@ export async function addProjectPartnerAction(projectId: string, formData: FormD
                     projectId,
                     partnerId,
                     role: role as any,
-                    isPrimary,
+                    isPrimary: finalIsPrimary,
                 },
                 update: {
-                    isPrimary, // si ya existía, solo actualiza esto (por ahora)
+                    isPrimary: finalIsPrimary,
                 },
             });
         });
 
         return { ok: true };
     } catch (e: any) {
-        // Si cae por unique (raro con upsert), o cualquier cosa:
         return { ok: false, message: e?.message ?? "No se pudo guardar." };
     }
 }
@@ -113,4 +138,44 @@ export async function removeProjectPartnerAction(projectPartnerId: string): Prom
     });
 
     return { ok: true };
+}
+
+export async function setProjectPartnerPrimaryAction(
+    projectPartnerId: string,
+    makePrimary: boolean
+): Promise<ActionResult> {
+    const tenantId = await requireTenantId();
+
+    const row = await prisma.remodelingProjectPartner.findFirst({
+        where: { id: projectPartnerId, tenantId },
+        select: { id: true, projectId: true, role: true },
+    });
+
+    if (!row) return { ok: false, message: "Registro no encontrado." };
+
+    try {
+        await prisma.$transaction(async (tx) => {
+            if (makePrimary) {
+                // ✅ 1 primary por rol en el proyecto
+                await tx.remodelingProjectPartner.updateMany({
+                    where: {
+                        tenantId,
+                        projectId: row.projectId,
+                        role: row.role,
+                        isPrimary: true,
+                    },
+                    data: { isPrimary: false },
+                });
+            }
+
+            await tx.remodelingProjectPartner.update({
+                where: { id: row.id },
+                data: { isPrimary: makePrimary },
+            });
+        });
+
+        return { ok: true };
+    } catch (e: any) {
+        return { ok: false, message: e?.message ?? "No se pudo actualizar primary." };
+    }
 }

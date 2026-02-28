@@ -46,7 +46,7 @@ export default async function BusinessPartnerDetailPage({ params }: { params: Pr
                 </div>
 
                 {/* Cards */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
                     <div className="bg-white dark:bg-slate-800 rounded-xl border-2 border-fuchsia-500/40 dark:border-slate-700 shadow-sm p-5">
                         <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Contacto</p>
                         <div className="mt-3 space-y-2 text-sm text-slate-700 dark:text-slate-200">
@@ -64,11 +64,39 @@ export default async function BusinessPartnerDetailPage({ params }: { params: Pr
                     </div>
 
                     <div className="bg-white dark:bg-slate-800 rounded-xl border-2 border-fuchsia-500/40 dark:border-slate-700 shadow-sm p-5">
+                        <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Proyectos</p>
+                        <p className="mt-3 text-2xl font-black text-slate-900 dark:text-slate-100">
+                            {bp._count.remodelingProjectPartners}
+                        </p>
+                        <p className="text-xs text-slate-500 dark:text-slate-400">Proyectos vinculados</p>
+                    </div>
+
+                    <div className="bg-white dark:bg-slate-800 rounded-xl border-2 border-fuchsia-500/40 dark:border-slate-700 shadow-sm p-5">
                         <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Tareas</p>
                         <p className="mt-3 text-2xl font-black text-slate-900 dark:text-slate-100">
                             {bp._count.remodelingTasks}
                         </p>
                         <p className="text-xs text-slate-500 dark:text-slate-400">Tareas asignadas</p>
+                    </div>
+
+                    {/* Roles */}
+                    <div className="bg-white dark:bg-slate-800 rounded-xl border-2 border-fuchsia-500/40 dark:border-slate-700 shadow-sm p-5">
+                        <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Roles</p>
+
+                        <div className="mt-3 flex flex-wrap gap-2">
+                            {(bp.roles?.length ?? 0) === 0 ? (
+                                <span className="text-xs text-slate-500 dark:text-slate-400">Sin roles.</span>
+                            ) : (
+                                bp.roles.map((r: string) => (
+                                    <span
+                                        key={r}
+                                        className="text-[11px] px-2 py-1 rounded-full bg-fuchsia-500/10 border border-fuchsia-500/20 text-fuchsia-200"
+                                    >
+                                        {r}
+                                    </span>
+                                ))
+                            )}
+                        </div>
                     </div>
                 </div>
 

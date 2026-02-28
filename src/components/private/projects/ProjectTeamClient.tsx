@@ -1,12 +1,25 @@
 "use client";
 
 import { useMemo, useState, useTransition } from "react";
-import { addProjectPartnerAction, removeProjectPartnerAction } from "@/action/projects/project-team";
-import { ProjectPartnerRole } from "../../../../generated/prisma/enums";
+import { addProjectPartnerAction, removeProjectPartnerAction, setProjectPartnerPrimaryAction } from "@/action/projects/project-team";
+import { BPRoleType, ProjectPartnerRole } from "../../../../generated/prisma/enums";
 import { useRouter } from "next/navigation";
+import { GrCheckbox, GrCheckboxSelected, GrTrash } from "react-icons/gr";
+import { SimpleTooltip } from "@/components/ui/SimpleTooltip";
 
 type TeamRow = Awaited<ReturnType<typeof import("@/action/projects/project-team").listProjectPartnersAction>>[number];
-type PartnerPick = { id: string; code: string; type: "PERSON" | "ORGANIZATION"; organizationName: string | null; firstName: string | null; lastName: string | null; email: string | null; phone: string | null };
+
+type PartnerPick = {
+    id: string;
+    code: string;
+    type: "PERSON" | "ORGANIZATION";
+    organizationName: string | null;
+    firstName: string | null;
+    lastName: string | null;
+    email: string | null;
+    phone: string | null;
+    roles: { role: BPRoleType }[]; // ✅ viene del select
+};
 
 const ROLES: { value: ProjectPartnerRole; label: string }[] = [
     { value: ProjectPartnerRole.CLIENT, label: "Cliente" },
@@ -14,8 +27,28 @@ const ROLES: { value: ProjectPartnerRole; label: string }[] = [
     { value: ProjectPartnerRole.ARCHITECT, label: "Arquitecto" },
     { value: ProjectPartnerRole.ENGINEER, label: "Ingeniero" },
     { value: ProjectPartnerRole.SUPPLIER, label: "Proveedor" },
-    { value: ProjectPartnerRole.STAFF, label: "Staff" },
+    { value: ProjectPartnerRole.STAFF, label: "Equipo interno (Staff)" },
 ];
+
+// ✅ mapeo SAP-like (slot de proyecto -> rol maestro BP)
+function mapProjectRoleToBpRole(role: ProjectPartnerRole): BPRoleType {
+    switch (role) {
+        case ProjectPartnerRole.CLIENT:
+            return BPRoleType.CLIENT;
+        case ProjectPartnerRole.CONTRACTOR:
+            return BPRoleType.CONTRACTOR;
+        case ProjectPartnerRole.ARCHITECT:
+            return BPRoleType.ARCHITECT;
+        case ProjectPartnerRole.ENGINEER:
+            return BPRoleType.ENGINEER;
+        case ProjectPartnerRole.SUPPLIER:
+            return BPRoleType.SUPPLIER;
+        case ProjectPartnerRole.STAFF:
+            return BPRoleType.STAFF;
+        default:
+            return BPRoleType.CONTACT; // fallback (no debería pasar)
+    }
+}
 
 function partnerLabel(p: PartnerPick) {
     if (p.organizationName) return p.organizationName;
@@ -32,17 +65,25 @@ export function ProjectTeamClient({
     initialTeam: TeamRow[];
     partners: PartnerPick[];
 }) {
-    const [team, setTeam] = useState<TeamRow[]>(initialTeam);
     const [pending, startTransition] = useTransition();
     const [msg, setMsg] = useState<{ type: "success" | "error"; text: string } | null>(null);
-    const router = useRouter()
+    const router = useRouter();
+
+    // ✅ rol seleccionado para filtrar BPs
+    const [selectedRole, setSelectedRole] = useState<ProjectPartnerRole>(ProjectPartnerRole.CONTRACTOR);
+
+    const requiredBpRole = useMemo(() => mapProjectRoleToBpRole(selectedRole), [selectedRole]);
+
+    const filteredPartners = useMemo(() => {
+        return partners.filter((p) => p.roles?.some((r) => r.role === requiredBpRole));
+    }, [partners, requiredBpRole]);
 
     const byRole = useMemo(() => {
         const m = new Map<string, TeamRow[]>();
         for (const r of ROLES) m.set(r.value, []);
-        for (const row of team) (m.get(row.role) ?? m.set(row.role, []).get(row.role)!)?.push(row);
+        for (const row of initialTeam) (m.get(row.role) ?? m.set(row.role, []).get(row.role)!)?.push(row);
         return m;
-    }, [team]);
+    }, [initialTeam]);
 
     return (
         <div className="space-y-6">
@@ -82,16 +123,15 @@ export function ProjectTeamClient({
                                 return;
                             }
                             setMsg({ type: "success", text: "Agregado." });
-                            // para verlo de inmediato, hacemos refresh local (simple):
-                            // (ideal: router.refresh(), pero aquí mantenemos UX suave)
-                            setTimeout(() => setMsg(null), 1200);
-                            router.refresh()
+                            setTimeout(() => setMsg(null), 800);
+                            router.refresh();
                         });
                     }}
                 >
                     <select
                         name="role"
-                        defaultValue="CONTRACTOR"
+                        value={selectedRole}
+                        onChange={(e) => setSelectedRole(e.target.value as ProjectPartnerRole)}
                         className="md:col-span-2 bg-slate-50 dark:bg-slate-900/40 border border-fuchsia-500/10 rounded-lg px-4 py-2.5 text-sm focus:ring-1 focus:ring-fuchsia-500 outline-none"
                     >
                         {ROLES.map((r) => (
@@ -106,8 +146,11 @@ export function ProjectTeamClient({
                         defaultValue=""
                         className="md:col-span-3 bg-slate-50 dark:bg-slate-900/40 border border-fuchsia-500/10 rounded-lg px-4 py-2.5 text-sm focus:ring-1 focus:ring-fuchsia-500 outline-none"
                     >
-                        <option value="">Selecciona un BP</option>
-                        {partners.map((p) => (
+                        <option value="">
+                            {filteredPartners.length ? "Selecciona un BP" : "No hay BPs con ese rol"}
+                        </option>
+
+                        {filteredPartners.map((p) => (
                             <option key={p.id} value={p.id}>
                                 {partnerLabel(p)} [{p.code}]
                             </option>
@@ -121,6 +164,7 @@ export function ProjectTeamClient({
 
                     <div className="md:col-span-6 flex justify-end">
                         <button
+                            type="submit"
                             disabled={pending}
                             className="transition ease-in-out flex px-4 py-2 items-center justify-center rounded-md bg-linear-to-br from-indigo-500 to-fuchsia-500 text-sm font-bold text-white shadow-md shadow-indigo-500/20 hover:from-indigo-600 hover:to-fuchsia-600 disabled:opacity-60"
                         >
@@ -165,26 +209,68 @@ export function ProjectTeamClient({
                                                     </p>
                                                 </div>
 
-                                                <button
-                                                    type="button"
-                                                    disabled={pending}
-                                                    onClick={() => {
-                                                        setMsg(null);
-                                                        startTransition(async () => {
-                                                            const res = await removeProjectPartnerAction(x.id);
-                                                            if (!res.ok) {
-                                                                setMsg({ type: "error", text: res.message });
-                                                                return;
-                                                            }
-                                                            setTeam((prev) => prev.filter((p) => p.id !== x.id));
-                                                            setMsg({ type: "success", text: "Eliminado." });
-                                                            setTimeout(() => setMsg(null), 1200);
-                                                        });
-                                                    }}
-                                                    className="text-xs font-bold text-rose-200 hover:text-rose-100 rounded-lg px-2 py-1 border border-rose-500/20 bg-rose-500/10"
-                                                >
-                                                    Eliminar
-                                                </button>
+                                                <div className="flex gap-2 mt-1">
+                                                    <SimpleTooltip text="Eliminar del proyecto">
+                                                        <button
+                                                            type="button"
+                                                            disabled={pending}
+                                                            onClick={() => {
+                                                                setMsg(null);
+                                                                startTransition(async () => {
+                                                                    const res = await removeProjectPartnerAction(x.id);
+                                                                    if (!res.ok) {
+                                                                        setMsg({ type: "error", text: res.message });
+                                                                        return;
+                                                                    }
+                                                                    setMsg({ type: "success", text: "Eliminado." });
+                                                                    setTimeout(() => setMsg(null), 1200);
+                                                                    router.refresh();
+                                                                });
+                                                            }}
+                                                            className="text-xs font-bold text-rose-200 hover:text-rose-100 rounded-lg px-2 py-1 border border-rose-500/20 bg-rose-500/10 cursor-pointer"
+                                                        >
+                                                            <GrTrash size={18} />
+
+                                                        </button>
+                                                    </SimpleTooltip>
+
+                                                    <SimpleTooltip
+                                                        text={
+                                                            x.isPrimary
+                                                                ? "Principal"
+                                                                : "Marcar como principal"
+                                                        }
+                                                    >
+                                                        <button
+                                                            type="button"
+                                                            disabled={pending}
+                                                            onClick={() => {
+                                                                setMsg(null);
+                                                                startTransition(async () => {
+                                                                    const res = await setProjectPartnerPrimaryAction(x.id, !x.isPrimary);
+                                                                    if (!res.ok) {
+                                                                        setMsg({ type: "error", text: res.message });
+                                                                        return;
+                                                                    }
+                                                                    setMsg({ type: "success", text: x.isPrimary ? "Primary removido." : "Primary asignado." });
+                                                                    setTimeout(() => setMsg(null), 1200);
+                                                                    router.refresh();
+                                                                });
+                                                            }}
+                                                            className={[
+                                                                "text-xs font-bold rounded-lg px-2 py-1 border cursor-pointer",
+                                                                x.isPrimary
+                                                                    ? "text-slate-200 border-slate-400/20 bg-slate-500/10 hover:bg-slate-500/15"
+                                                                    : "text-fuchsia-200 border-fuchsia-500/20 bg-fuchsia-500/10 hover:bg-fuchsia-500/15",
+                                                            ].join(" ")}
+                                                        >
+                                                            {x.isPrimary ? <GrCheckbox size={18} /> : <GrCheckboxSelected size={18} />}
+                                                        </button>
+
+                                                    </SimpleTooltip>
+
+                                                </div>
+
                                             </div>
                                         </div>
                                     ))
