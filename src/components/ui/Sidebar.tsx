@@ -5,17 +5,17 @@ import { SidebarGroup } from "./SidebarGroup";
 
 // Icons
 import { MdOutlineDashboard } from "react-icons/md";
-import { FaCalendarAlt, FaUser } from "react-icons/fa";
-import { RiAdminLine } from "react-icons/ri";
+import { FaCalendarAlt } from "react-icons/fa";
+// import { RiAdminLine } from "react-icons/ri";
 import { GrHost } from "react-icons/gr";
 import { IoMdSettings } from "react-icons/io";
 import { FiSettings } from "react-icons/fi";
 
 import { FaUsers } from "react-icons/fa";
-import { RiTeamLine } from "react-icons/ri";
+// import { RiTeamLine } from "react-icons/ri";
 import { MdOutlineSecurity } from "react-icons/md";
 import { FiLink } from "react-icons/fi";
-import { FaFileInvoiceDollar } from "react-icons/fa";
+// import { FaFileInvoiceDollar } from "react-icons/fa";
 import { RiHistoryLine } from "react-icons/ri";
 import { FaBuildingCircleArrowRight } from "react-icons/fa6";
 import { LiaUsersCogSolid } from "react-icons/lia";
@@ -41,18 +41,18 @@ const MAIN: NavItem[] = [
 ];
 
 const SESSIONS: NavItem[] = [
-  {
-    key: "my_sessions",
-    href: "/account/sessions",
-    icon: <FaUser size={20} />,
-    label: "Mis sesiones",
-  },
-  {
-    key: "org_sessions",
-    href: "/admin/sessions",
-    icon: <RiAdminLine size={20} />,
-    label: "Sesiones de la organización",
-  },
+  // {
+  //   key: "my_sessions",
+  //   href: "/account/sessions",
+  //   icon: <FaUser size={20} />,
+  //   label: "Mis sesiones",
+  // },
+  // {
+  //   key: "org_sessions",
+  //   href: "/admin/sessions",
+  //   icon: <RiAdminLine size={20} />,
+  //   label: "Sesiones de la organización",
+  // },
 ];
 
 // Mismo contenido; solo renombro el grupo "Historia Clínica" a algo más neutral
@@ -185,9 +185,9 @@ export function Sidebar({ clinic, user }: { clinic: SidebarClinic; user: Sidebar
         />
 
         <div className="pt-3">
-          <p className="mb-2 px-3 text-[10px] font-black uppercase tracking-widest text-slate-400">
+          {/* <p className="mb-2 px-3 text-[10px] font-black uppercase tracking-widest text-slate-400">
             Seguridad
-          </p>
+          </p> */}
 
           {SESSIONS.map((it) => (
             <ActiveNavLink key={it.key} href={it.href} icon={it.icon} label={it.label} />
@@ -198,11 +198,11 @@ export function Sidebar({ clinic, user }: { clinic: SidebarClinic; user: Sidebar
       {/* Bottom */}
       <div className="space-y-2 border-t border-slate-200/70 p-4 dark:border-slate-800">
         <ActiveNavLink href="/settings" icon={<IoMdSettings size={20} />} label="Configuración" />
-        <ActiveNavLink
+        {/* <ActiveNavLink
           href="/account"
           icon={<IoMdSettings size={20} />}
           label="Mi cuenta"
-        />
+        /> */}
 
         <div className="flex items-center justify-between gap-3 rounded-xl bg-slate-50 px-3 py-2 dark:bg-slate-900/30">
           <div className="min-w-0">
