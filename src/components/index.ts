@@ -34,6 +34,7 @@ export { ProjectCreateFormClient } from "./private/projects/ProjectCreateFormCli
 export { ProjectTabsClient } from "./private/projects/ProjectTabsClient"
 export { ProjectTasksBoardClient } from "./private/projects/ProjectTasksBoardClient"
 export { ProjectTeamClient } from "./private/projects/ProjectTeamClient"
+export { ProjectBudgetClient } from "./private/projects/ProjectBudgetClient"
 
 // Business Partner
 export { BusinessPartnerPage } from "./private/business-partner/BusinessPartnerPage"

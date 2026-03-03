@@ -239,6 +239,51 @@ enum TaskCategory {
   ADMIN // administrativo
 }
 
+enum BudgetStatus {
+  DRAFT
+  APPROVED
+  CLOSED
+}
+
+enum CostKind {
+  BUDGET // línea presupuestaria (plan)
+  COMMITMENT // comprometido (cotización/OC/contrato)
+  ACTUAL // gasto real (factura/pago/recibo)
+  REVENUE // ingreso (venta)
+}
+
+enum CostCategory {
+  ACQUISITION // compra propiedad / cierre (CAPEX)
+  CONSTRUCTION // obra (CAPEX)
+  MATERIALS // materiales (CAPEX)
+  LABOR // mano de obra (CAPEX/OPEX depende tu política)
+  PROFESSIONALS // arquitecto/ingeniero (CAPEX)
+  PERMITS // licencias (CAPEX)
+  LOGISTICS // transporte/viáticos (OPEX)
+  ADMIN // administrativo (OPEX)
+  TAXES // impuestos / notarías
+  OTHER
+}
+
+enum CommitmentType {
+  QUOTE
+  PURCHASE_ORDER
+  CONTRACT
+}
+
+enum CostDocType {
+  INVOICE
+  RECEIPT
+  PAYROLL
+  OTHER
+}
+
+enum RevenueType {
+  SALE
+  RENT
+  OTHER
+}
+
 // ------------------------------------------------
 // Models
 // ------------------------------------------------
@@ -277,7 +322,6 @@ model Tenant {
   orgBusinessPartner   BusinessPartner? @relation("TenantOrgBP", fields: [orgBusinessPartnerId], references: [id], onDelete: SetNull)
 
   // Proyects
-  expenses          Expense[]
   projectDocuments  ProjectDocument[]
   meetings          Meeting[]
   progressSnapshots ProjectProgressSnapshot[]
@@ -298,11 +342,6 @@ model Tenant {
   pendingActions           PendingAction[]
   remodelingProjects       RemodelingProject[]
   remodelingTasks          RemodelingTask[]
-  changeOrders             ChangeOrder[]
-  quotes                   Quote[]
-  quoteLines               QuoteLine[]
-  invoices                 Invoice[]
-  payments                 Payment[]
   timelineEvents           TimelineEvent[]
   emailOutboxes            EmailOutbox[]
   tenantBranding           TenantBranding?
@@ -312,6 +351,8 @@ model Tenant {
   createdAt                 DateTime                   @default(now())
   updatedAt                 DateTime                   @updatedAt
   remodelingProjectPartners RemodelingProjectPartner[]
+
+  @@index([defaultCurrencyCode])
 }
 
 model TenantBranding {
@@ -481,8 +522,6 @@ model User {
   authEvents            AuthEvent[]
   // userPreference UserPreference?
   // changeOrder ChangeOrder[]
-  changeOrdersRequested ChangeOrder[]      @relation("ChangeOrderRequestedByUser")
-  changeOrdersApproved  ChangeOrder[]      @relation("ChangeOrderApprovedByUser")
 
   createdAt          DateTime           @default(now())
   updatedAt          DateTime           @updatedAt
@@ -490,9 +529,9 @@ model User {
   messages           Message[]
   remodelingTasks    RemodelingTask[]
   projectDocuments   ProjectDocument[]
-  expenses           Expense[]
   meetings           Meeting[]
   agentIdentity      AgentIdentity[]
+  projectCosts       ProjectCost[]
 
   @@index([emailNormalized])
 }
@@ -707,6 +746,446 @@ model AgentIdentity {
 
 // ------------------------------------------------
 // Models of modules
+// ------------------------------------------------
+
+// Remodelaciones (proyectos + tareas + reformas)
+
+model RemodelingProject {
+  id       String @id @default(uuid())
+  tenantId String
+
+  code String
+  name String
+
+  status ProjectStatus @default(DRAFT)
+
+  // cliente/propietario
+  clientPartnerId String?
+
+  // dirección del inmueble
+  addressLine1 String?
+  city         String?
+  postalCode   String?
+  countryCode  String?
+
+  // opcional: ubicación interna/operativa
+  locationId String?
+  orgUnitId  String?
+
+  startDate     DateTime?
+  targetEndDate DateTime?
+
+  // Resumen del alcance
+  scopeSummary String?
+
+  tenant  Tenant   @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  country Country? @relation(fields: [countryCode], references: [code], onDelete: Restrict)
+
+  clientPartner BusinessPartner? @relation(fields: [clientPartnerId], references: [id], onDelete: Restrict)
+  location      Location?        @relation(fields: [locationId], references: [id], onDelete: Restrict)
+  orgUnit       OrgUnit?         @relation(fields: [orgUnitId], references: [id], onDelete: Restrict)
+
+  tasks         RemodelingTask[]
+  timeline      TimelineEvent[]
+  conversations Conversation[]
+
+  documents         ProjectDocument[]
+  meetings          Meeting[]
+  progressSnapshots ProjectProgressSnapshot[]
+
+  createdAt          DateTime                   @default(now())
+  updatedAt          DateTime                   @updatedAt
+  emailOutboxes      EmailOutbox[]
+  projectPartners    RemodelingProjectPartner[]
+  projectBudgets     ProjectBudget[]
+  projectCosts       ProjectCost[]
+  projectCommitments ProjectCommitment[]
+  projectRevenues    ProjectRevenue[]
+
+  @@unique([tenantId, code])
+  @@index([tenantId, status])
+  @@index([tenantId, clientPartnerId])
+  @@index([tenantId, locationId])
+  @@index([tenantId, orgUnitId])
+}
+
+model RemodelingTask {
+  id String @id @default(uuid())
+
+  tenantId  String
+  projectId String
+
+  code        String?
+  title       String
+  description String?
+
+  weight   Int          @default(1)
+  priority TaskPriority @default(MEDIUM) // ✅ nuevo
+  category TaskCategory @default(GENERAL) // ✅ nuevo
+
+  status  TaskStatus @default(TODO)
+  dueDate DateTime?
+
+  // asignación
+  assigneePartnerId String?
+  assigneeUserId    String?
+
+  tenant  Tenant            @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  project RemodelingProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  assigneePartner BusinessPartner? @relation(fields: [assigneePartnerId], references: [id], onDelete: Restrict)
+  assigneeUser    User?            @relation(fields: [assigneeUserId], references: [id], onDelete: Restrict)
+
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  timelineEvents TimelineEvent[]
+
+  @@index([tenantId, projectId])
+  @@index([tenantId, status])
+  @@index([projectId, dueDate])
+}
+
+// Timeline unificada (tu “control total”)
+
+model TimelineEvent {
+  id String @id @default(uuid())
+
+  tenantId  String
+  projectId String?
+
+  type        String
+  title       String?
+  description String?
+
+  conversationId String?
+  messageId      String?
+  taskId         String?
+  changeOrderId  String?
+  quoteId        String?
+  invoiceId      String?
+  paymentId      String?
+
+  actorUserId    String?
+  actorPartnerId String?
+  senderKind     SenderKind @default(SYSTEM)
+
+  metadata Json?
+
+  tenant  Tenant             @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  project RemodelingProject? @relation(fields: [projectId], references: [id], onDelete: SetNull)
+
+  conversation Conversation? @relation(fields: [conversationId], references: [id], onDelete: SetNull)
+  message      Message?      @relation(fields: [messageId], references: [id], onDelete: SetNull)
+
+  task        RemodelingTask? @relation(fields: [taskId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+
+  @@index([tenantId, createdAt])
+  @@index([tenantId, projectId, createdAt])
+  @@index([projectId, createdAt])
+}
+
+// Documentos del proyecto (clasificación Facturas / Fotos / PDFs)
+model ProjectDocument {
+  id String @id @default(uuid())
+
+  tenantId  String
+  projectId String
+
+  category ProjectDocumentCategory
+
+  // metadata archivo
+  fileName String?
+  mimeType String?
+  size     Int?
+  sha256   String?
+
+  // dónde está guardado (S3/R2/local)
+  url        String?
+  storageKey String?
+
+  // si viene desde WhatsApp
+  sourceMessageId    String?
+  sourceAttachmentId String?
+
+  // actor que lo registró (dueño vía WhatsApp o usuario SaaS)
+  createdByUserId    String?
+  createdByPartnerId String?
+
+  metadata Json?
+
+  tenant  Tenant            @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  project RemodelingProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  sourceMessage    Message?           @relation(fields: [sourceMessageId], references: [id], onDelete: SetNull)
+  sourceAttachment MessageAttachment? @relation(fields: [sourceAttachmentId], references: [id], onDelete: SetNull)
+
+  createdByUser    User?            @relation(fields: [createdByUserId], references: [id], onDelete: SetNull)
+  createdByPartner BusinessPartner? @relation(fields: [createdByPartnerId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+
+  @@index([tenantId, projectId, category])
+  @@index([tenantId, createdAt])
+  @@index([projectId, createdAt])
+}
+
+// Reuniones (Calendar)
+
+model Meeting {
+  id String @id @default(uuid())
+
+  tenantId  String
+  projectId String?
+
+  status MeetingStatus @default(DRAFT)
+
+  title       String
+  description String?
+
+  startAt DateTime
+  endAt   DateTime
+
+  // Calendar provider info (llenado por n8n)
+  provider        String? // "google", "microsoft"
+  providerEventId String?
+  calendarLink    String?
+  meetLink        String?
+
+  // participantes
+  attendees Json? // [{name,email,phone}]
+
+  createdByUserId    String?
+  createdByPartnerId String?
+
+  tenant  Tenant             @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  project RemodelingProject? @relation(fields: [projectId], references: [id], onDelete: SetNull)
+
+  createdByUser    User?            @relation(fields: [createdByUserId], references: [id], onDelete: SetNull)
+  createdByPartner BusinessPartner? @relation(fields: [createdByPartnerId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([tenantId, startAt])
+  @@index([tenantId, projectId, startAt])
+  @@index([providerEventId])
+}
+
+// Progreso y ETA (para % y reportes)
+
+model ProjectProgressSnapshot {
+  id String @id @default(uuid())
+
+  tenantId  String
+  projectId String
+
+  method ProgressMethod @default(TASKS_SIMPLE)
+
+  percent    Int // 0..100
+  etaEndDate DateTime?
+
+  // explicación de cómo se calculó (tareas total/done, pesos, etc.)
+  basis Json?
+
+  computedAt DateTime @default(now())
+
+  tenant  Tenant            @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  project RemodelingProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, projectId, computedAt])
+  @@index([projectId, computedAt])
+}
+
+// Asiganción de BP a proyectos
+
+model RemodelingProjectPartner {
+  id        String             @id @default(uuid())
+  tenantId  String
+  projectId String
+  partnerId String
+  role      ProjectPartnerRole
+
+  isPrimary Boolean @default(false)
+
+  tenant  Tenant            @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  project RemodelingProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  partner BusinessPartner   @relation(fields: [partnerId], references: [id], onDelete: Restrict)
+
+  createdAt DateTime @default(now())
+
+  @@unique([tenantId, projectId, partnerId, role])
+  @@index([tenantId, projectId, role])
+}
+
+// Gestion de costos del proyecto
+// Se realizará toda la gestión de Preseupuestos, gastos.
+
+model ProjectBudget {
+  id        String @id @default(uuid())
+  tenantId  String
+  projectId String
+
+  version Int
+  status  BudgetStatus @default(DRAFT)
+  name    String? // "Presupuesto base", "Revisión 2"
+  notes   String?
+
+  project RemodelingProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  lines ProjectBudgetLine[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([tenantId, projectId, version])
+  @@index([tenantId, projectId])
+}
+
+model ProjectBudgetLine {
+  id       String @id @default(uuid())
+  tenantId String
+  budgetId String
+
+  // SAP-like
+  code          String // "01", "02.10", etc (o generado por number range si quieres)
+  title         String
+  category      CostCategory
+  plannedAmount Decimal      @db.Decimal(18, 2)
+
+  //Currency
+  currencyCode String
+  currency     Currency @relation(fields: [currencyCode], references: [code], onDelete: Restrict)
+
+  // opcional: para jerarquía de capítulos
+  parentId String?
+  parent   ProjectBudgetLine?  @relation("BudgetLineTree", fields: [parentId], references: [id], onDelete: SetNull)
+  children ProjectBudgetLine[] @relation("BudgetLineTree")
+
+  budget ProjectBudget @relation(fields: [budgetId], references: [id], onDelete: Cascade)
+
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
+  projectCosts       ProjectCost[]
+  projectCommitments ProjectCommitment[]
+
+  @@unique([tenantId, budgetId, code])
+  @@index([tenantId, budgetId])
+  @@index([tenantId, category])
+  @@index([currencyCode])
+}
+
+model ProjectCost {
+  id        String @id @default(uuid())
+  tenantId  String
+  projectId String
+
+  kind     CostKind
+  category CostCategory
+
+  // monto siempre en moneda del tenant
+  amount Decimal @db.Decimal(18, 2)
+
+  // Currency
+  currencyCode String
+  currency     Currency @relation(fields: [currencyCode], references: [code], onDelete: Restrict)
+
+  // links SAP-like (optional)
+  budgetLineId String? // si quieres amarrar un gasto a una línea del presupuesto
+  budgetLine   ProjectBudgetLine? @relation(fields: [budgetLineId], references: [id], onDelete: SetNull)
+
+  // asignación operativa
+  partnerId String? // BP asociado (proveedor/contratista/etc.)
+  partner   BusinessPartner? @relation(fields: [partnerId], references: [id], onDelete: SetNull)
+
+  userId String? // si tu BP tiene user, o si el gasto lo registra un usuario
+  user   User?   @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  // info documental
+  docType    CostDocType?
+  docNo      String?
+  docDate    DateTime?
+  notes      String?
+  occurredAt DateTime?
+
+  // estado simple (opcional)
+  isApproved Boolean   @default(false)
+  paidAt     DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  project RemodelingProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, projectId])
+  @@index([tenantId, projectId, kind])
+  @@index([tenantId, category])
+  @@index([tenantId, partnerId])
+    @@index([currencyCode])
+}
+
+model ProjectCommitment {
+  id        String @id @default(uuid())
+  tenantId  String
+  projectId String
+
+  type     CommitmentType
+  category CostCategory
+  amount   Decimal        @db.Decimal(18, 2)
+
+  partnerId String?
+  partner   BusinessPartner? @relation(fields: [partnerId], references: [id], onDelete: SetNull)
+
+  budgetLineId String?
+  budgetLine   ProjectBudgetLine? @relation(fields: [budgetLineId], references: [id], onDelete: SetNull)
+
+  reference  String? // No. cotización / OC / contrato
+  notes      String?
+  occurredAt DateTime?
+
+  // Currency
+  currencyCode String
+  currency     Currency @relation(fields: [currencyCode], references: [code], onDelete: Restrict)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  project RemodelingProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, projectId])
+  @@index([tenantId, projectId, category])
+  @@index([currencyCode])
+}
+
+model ProjectRevenue {
+  id        String @id @default(uuid())
+  tenantId  String
+  projectId String
+
+  type       RevenueType @default(SALE)
+  amount     Decimal     @db.Decimal(18, 2)
+  expectedAt DateTime?
+  receivedAt DateTime?
+  notes      String?
+
+  // Currency
+  currencyCode String
+  currency     Currency @relation(fields: [currencyCode], references: [code], onDelete: Restrict)
+
+  project RemodelingProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  occurredAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([tenantId, projectId])
+  @@index([currencyCode])
+}
+
+// ------------------------------------------------
+// Communications
 // ------------------------------------------------
 
 // Canal / WhatsApp
@@ -937,293 +1416,6 @@ model PendingAction {
   @@index([expiresAt])
 }
 
-// Remodelaciones (proyectos + tareas + reformas)
-
-model RemodelingProject {
-  id       String @id @default(uuid())
-  tenantId String
-
-  code String
-  name String
-
-  status ProjectStatus @default(DRAFT)
-
-  // cliente/propietario
-  clientPartnerId String?
-
-  // dirección del inmueble
-  addressLine1 String?
-  city         String?
-  postalCode   String?
-  countryCode  String?
-
-  // opcional: ubicación interna/operativa
-  locationId String?
-  orgUnitId  String?
-
-  startDate     DateTime?
-  targetEndDate DateTime?
-
-  // Resumen del alcance
-  scopeSummary String?
-
-  tenant  Tenant   @relation(fields: [tenantId], references: [id], onDelete: Restrict)
-  country Country? @relation(fields: [countryCode], references: [code], onDelete: Restrict)
-
-  clientPartner BusinessPartner? @relation(fields: [clientPartnerId], references: [id], onDelete: Restrict)
-  location      Location?        @relation(fields: [locationId], references: [id], onDelete: Restrict)
-  orgUnit       OrgUnit?         @relation(fields: [orgUnitId], references: [id], onDelete: Restrict)
-
-  tasks         RemodelingTask[]
-  changeOrders  ChangeOrder[]
-  quotes        Quote[]
-  invoices      Invoice[]
-  payments      Payment[]
-  timeline      TimelineEvent[]
-  conversations Conversation[]
-
-  documents         ProjectDocument[]
-  expenses          Expense[]
-  meetings          Meeting[]
-  progressSnapshots ProjectProgressSnapshot[]
-
-  createdAt       DateTime                   @default(now())
-  updatedAt       DateTime                   @updatedAt
-  emailOutboxes   EmailOutbox[]
-  projectPartners RemodelingProjectPartner[]
-
-  @@unique([tenantId, code])
-  @@index([tenantId, status])
-  @@index([tenantId, clientPartnerId])
-  @@index([tenantId, locationId])
-  @@index([tenantId, orgUnitId])
-}
-
-model RemodelingTask {
-  id String @id @default(uuid())
-
-  tenantId  String
-  projectId String
-
-  code        String?
-  title       String
-  description String?
-
-  weight   Int          @default(1)
-  priority TaskPriority @default(MEDIUM) // ✅ nuevo
-  category TaskCategory @default(GENERAL) // ✅ nuevo
-
-  status  TaskStatus @default(TODO)
-  dueDate DateTime?
-
-  // asignación
-  assigneePartnerId String?
-  assigneeUserId    String?
-
-  tenant  Tenant            @relation(fields: [tenantId], references: [id], onDelete: Restrict)
-  project RemodelingProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
-
-  assigneePartner BusinessPartner? @relation(fields: [assigneePartnerId], references: [id], onDelete: Restrict)
-  assigneeUser    User?            @relation(fields: [assigneeUserId], references: [id], onDelete: Restrict)
-
-  createdAt      DateTime        @default(now())
-  updatedAt      DateTime        @updatedAt
-  timelineEvents TimelineEvent[]
-
-  @@index([tenantId, projectId])
-  @@index([tenantId, status])
-  @@index([projectId, dueDate])
-}
-
-model ChangeOrder {
-  id String @id @default(uuid())
-
-  tenantId  String
-  projectId String
-
-  code        String
-  title       String
-  description String?
-
-  status ChangeOrderStatus @default(DRAFT)
-
-  estimatedCost Decimal?
-  currencyCode  String?
-
-  requestedByPartnerId String?
-  requestedByUserId    String?
-
-  approvedAt       DateTime?
-  approvedByUserId String?
-
-  tenant  Tenant            @relation(fields: [tenantId], references: [id], onDelete: Restrict)
-  project RemodelingProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
-
-  currency Currency? @relation(fields: [currencyCode], references: [code], onDelete: Restrict)
-
-  requestedByPartner BusinessPartner? @relation(fields: [requestedByPartnerId], references: [id], onDelete: Restrict)
-
-  requestedByUser User? @relation("ChangeOrderRequestedByUser", fields: [requestedByUserId], references: [id], onDelete: Restrict)
-  approvedByUser  User? @relation("ChangeOrderApprovedByUser", fields: [approvedByUserId], references: [id], onDelete: Restrict)
-
-  createdAt      DateTime        @default(now())
-  updatedAt      DateTime        @updatedAt
-  timelineEvents TimelineEvent[]
-
-  @@unique([tenantId, code])
-  @@index([tenantId, projectId])
-  @@index([tenantId, status])
-}
-
-// Cotizaciones / facturas / pagos (mínimo viable)
-
-model Quote {
-  id String @id @default(uuid())
-
-  tenantId  String
-  projectId String
-
-  code  String
-  title String?
-
-  currencyCode String
-  subtotal     Decimal @default(0)
-  tax          Decimal @default(0)
-  total        Decimal @default(0)
-
-  notes  String?
-  status String  @default("DRAFT") // si luego quieres enum
-
-  tenant   Tenant            @relation(fields: [tenantId], references: [id], onDelete: Restrict)
-  project  RemodelingProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  currency Currency          @relation(fields: [currencyCode], references: [code], onDelete: Restrict)
-
-  lines QuoteLine[]
-
-  createdAt      DateTime        @default(now())
-  updatedAt      DateTime        @updatedAt
-  timelineEvents TimelineEvent[]
-
-  @@unique([tenantId, code])
-  @@index([tenantId, projectId])
-}
-
-model QuoteLine {
-  id String @id @default(uuid())
-
-  tenantId String
-  quoteId  String
-
-  description String
-  qty         Decimal @default(1)
-  unitPrice   Decimal @default(0)
-  total       Decimal @default(0)
-
-  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Restrict)
-  quote  Quote  @relation(fields: [quoteId], references: [id], onDelete: Cascade)
-
-  @@index([tenantId, quoteId])
-}
-
-model Invoice {
-  id String @id @default(uuid())
-
-  tenantId  String
-  projectId String
-
-  code         String
-  currencyCode String
-
-  subtotal Decimal @default(0)
-  tax      Decimal @default(0)
-  total    Decimal @default(0)
-
-  status String @default("DRAFT")
-
-  tenant   Tenant            @relation(fields: [tenantId], references: [id], onDelete: Restrict)
-  project  RemodelingProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  currency Currency          @relation(fields: [currencyCode], references: [code], onDelete: Restrict)
-
-  createdAt      DateTime        @default(now())
-  updatedAt      DateTime        @updatedAt
-  timelineEvents TimelineEvent[]
-
-  @@unique([tenantId, code])
-  @@index([tenantId, projectId])
-}
-
-model Payment {
-  id String @id @default(uuid())
-
-  tenantId  String
-  projectId String
-
-  code String?
-
-  amount       Decimal
-  currencyCode String
-
-  paidAt DateTime?
-
-  method    String? // "CASH", "TRANSFER", "CARD"
-  reference String?
-
-  tenant   Tenant            @relation(fields: [tenantId], references: [id], onDelete: Restrict)
-  project  RemodelingProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  currency Currency          @relation(fields: [currencyCode], references: [code], onDelete: Restrict)
-
-  createdAt      DateTime        @default(now())
-  timelineEvents TimelineEvent[]
-
-  @@index([tenantId, projectId])
-  @@index([tenantId, paidAt])
-}
-
-// Timeline unificada (tu “control total”)
-
-model TimelineEvent {
-  id String @id @default(uuid())
-
-  tenantId  String
-  projectId String?
-
-  type        String
-  title       String?
-  description String?
-
-  conversationId String?
-  messageId      String?
-  taskId         String?
-  changeOrderId  String?
-  quoteId        String?
-  invoiceId      String?
-  paymentId      String?
-
-  actorUserId    String?
-  actorPartnerId String?
-  senderKind     SenderKind @default(SYSTEM)
-
-  metadata Json?
-
-  tenant  Tenant             @relation(fields: [tenantId], references: [id], onDelete: Restrict)
-  project RemodelingProject? @relation(fields: [projectId], references: [id], onDelete: SetNull)
-
-  conversation Conversation? @relation(fields: [conversationId], references: [id], onDelete: SetNull)
-  message      Message?      @relation(fields: [messageId], references: [id], onDelete: SetNull)
-
-  task        RemodelingTask? @relation(fields: [taskId], references: [id], onDelete: SetNull)
-  changeOrder ChangeOrder?    @relation(fields: [changeOrderId], references: [id], onDelete: SetNull)
-  quote       Quote?          @relation(fields: [quoteId], references: [id], onDelete: SetNull)
-  invoice     Invoice?        @relation(fields: [invoiceId], references: [id], onDelete: SetNull)
-  payment     Payment?        @relation(fields: [paymentId], references: [id], onDelete: SetNull)
-
-  createdAt DateTime @default(now())
-
-  @@index([tenantId, createdAt])
-  @@index([tenantId, projectId, createdAt])
-  @@index([projectId, createdAt])
-}
-
 // Email outbox (para que “el agente envíe emails” pero de forma segura)
 
 model EmailOutbox {
@@ -1266,185 +1458,6 @@ model EmailOutbox {
   @@index([tenantId, projectId])
 }
 
-// Documentos del proyecto (clasificación Facturas / Fotos / PDFs)
-model ProjectDocument {
-  id String @id @default(uuid())
-
-  tenantId  String
-  projectId String
-
-  category ProjectDocumentCategory
-
-  // metadata archivo
-  fileName String?
-  mimeType String?
-  size     Int?
-  sha256   String?
-
-  // dónde está guardado (S3/R2/local)
-  url        String?
-  storageKey String?
-
-  // si viene desde WhatsApp
-  sourceMessageId    String?
-  sourceAttachmentId String?
-
-  // actor que lo registró (dueño vía WhatsApp o usuario SaaS)
-  createdByUserId    String?
-  createdByPartnerId String?
-
-  metadata Json?
-
-  tenant  Tenant            @relation(fields: [tenantId], references: [id], onDelete: Restrict)
-  project RemodelingProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
-
-  sourceMessage    Message?           @relation(fields: [sourceMessageId], references: [id], onDelete: SetNull)
-  sourceAttachment MessageAttachment? @relation(fields: [sourceAttachmentId], references: [id], onDelete: SetNull)
-
-  createdByUser    User?            @relation(fields: [createdByUserId], references: [id], onDelete: SetNull)
-  createdByPartner BusinessPartner? @relation(fields: [createdByPartnerId], references: [id], onDelete: SetNull)
-
-  createdAt DateTime  @default(now())
-  expenses  Expense[]
-
-  @@index([tenantId, projectId, category])
-  @@index([tenantId, createdAt])
-  @@index([projectId, createdAt])
-}
-
-// Gastos (Expense) con soporte documental
-
-model Expense {
-  id String @id @default(uuid())
-
-  tenantId  String
-  projectId String
-
-  status ExpenseStatus @default(DRAFT)
-
-  amount       Decimal
-  currencyCode String
-
-  concept String?
-  notes   String?
-
-  vendorPartnerId String?
-
-  incurredAt DateTime?
-  paidAt     DateTime?
-
-  documentId String?
-
-  createdByUserId    String?
-  createdByPartnerId String?
-
-  tenant   Tenant            @relation(fields: [tenantId], references: [id], onDelete: Restrict)
-  project  RemodelingProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  currency Currency          @relation(fields: [currencyCode], references: [code], onDelete: Restrict)
-
-  vendorPartner BusinessPartner? @relation("ExpenseVendorPartner", fields: [vendorPartnerId], references: [id], onDelete: Restrict)
-
-  document ProjectDocument? @relation(fields: [documentId], references: [id], onDelete: SetNull)
-
-  createdByUser    User?            @relation(fields: [createdByUserId], references: [id], onDelete: SetNull)
-  createdByPartner BusinessPartner? @relation("ExpenseCreatedByPartner", fields: [createdByPartnerId], references: [id], onDelete: SetNull)
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@index([tenantId, projectId, createdAt])
-  @@index([tenantId, projectId, status])
-  @@index([tenantId, paidAt])
-}
-
-// Reuniones (Calendar)
-
-model Meeting {
-  id String @id @default(uuid())
-
-  tenantId  String
-  projectId String?
-
-  status MeetingStatus @default(DRAFT)
-
-  title       String
-  description String?
-
-  startAt DateTime
-  endAt   DateTime
-
-  // Calendar provider info (llenado por n8n)
-  provider        String? // "google", "microsoft"
-  providerEventId String?
-  calendarLink    String?
-  meetLink        String?
-
-  // participantes
-  attendees Json? // [{name,email,phone}]
-
-  createdByUserId    String?
-  createdByPartnerId String?
-
-  tenant  Tenant             @relation(fields: [tenantId], references: [id], onDelete: Restrict)
-  project RemodelingProject? @relation(fields: [projectId], references: [id], onDelete: SetNull)
-
-  createdByUser    User?            @relation(fields: [createdByUserId], references: [id], onDelete: SetNull)
-  createdByPartner BusinessPartner? @relation(fields: [createdByPartnerId], references: [id], onDelete: SetNull)
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@index([tenantId, startAt])
-  @@index([tenantId, projectId, startAt])
-  @@index([providerEventId])
-}
-
-// Progreso y ETA (para % y reportes)
-
-model ProjectProgressSnapshot {
-  id String @id @default(uuid())
-
-  tenantId  String
-  projectId String
-
-  method ProgressMethod @default(TASKS_SIMPLE)
-
-  percent    Int // 0..100
-  etaEndDate DateTime?
-
-  // explicación de cómo se calculó (tareas total/done, pesos, etc.)
-  basis Json?
-
-  computedAt DateTime @default(now())
-
-  tenant  Tenant            @relation(fields: [tenantId], references: [id], onDelete: Restrict)
-  project RemodelingProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
-
-  @@index([tenantId, projectId, computedAt])
-  @@index([projectId, computedAt])
-}
-
-// Asiganción de BP a proyectos
-
-model RemodelingProjectPartner {
-  id        String             @id @default(uuid())
-  tenantId  String
-  projectId String
-  partnerId String
-  role      ProjectPartnerRole
-
-  isPrimary Boolean @default(false)
-
-  tenant  Tenant            @relation(fields: [tenantId], references: [id], onDelete: Restrict)
-  project RemodelingProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  partner BusinessPartner   @relation(fields: [partnerId], references: [id], onDelete: Restrict)
-
-  createdAt DateTime @default(now())
-
-  @@unique([tenantId, projectId, partnerId, role])
-  @@index([tenantId, projectId, role])
-}
-
 // ------------------------------------------------
 // Master data
 // ------------------------------------------------
@@ -1480,15 +1493,14 @@ model BusinessPartner {
   messages                  Message[]
   remodelingProjects        RemodelingProject[]
   remodelingTasks           RemodelingTask[]
-  changeOrders              ChangeOrder[]
   projectDocuments          ProjectDocument[]
   meetings                  Meeting[]
-  expensesAsVendor          Expense[]                  @relation("ExpenseVendorPartner")
-  expensesCreatedBy         Expense[]                  @relation("ExpenseCreatedByPartner")
   tenantAsOrg               Tenant?                    @relation("TenantOrgBP")
   businessPartnerLocations  BusinessPartnerLocation[]
   remodelingProjectPartners RemodelingProjectPartner[]
   tenantMemberships         TenantMembership[]
+  projectCosts              ProjectCost[]
+  projectCommitments        ProjectCommitment[]
 
   @@unique([tenantId, code])
   @@index([tenantId])
@@ -1570,13 +1582,12 @@ model Currency {
   decimals Int     @default(2)
   isActive Boolean @default(true)
 
-  tenants      Tenant[]
-  countries    Country[] // ✅ países cuya moneda oficial es esta
-  changeOrders ChangeOrder[]
-  quotes       Quote[]
-  invoices     Invoice[]
-  payments     Payment[]
-  expenses     Expense[]
+  tenants            Tenant[]
+  countries          Country[] // ✅ países cuya moneda oficial es esta
+  projectBudgetLines ProjectBudgetLine[]
+  projectCosts       ProjectCost[]
+  projectCommitments ProjectCommitment[]
+  projectRevenues    ProjectRevenue[]
 }
 
 // País (ISO 3166-1 alpha-2)

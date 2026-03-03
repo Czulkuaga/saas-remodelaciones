@@ -3,24 +3,10 @@
 import { prisma } from "@/lib/prisma";
 import { requireTenantId } from "@/lib/auth/session";
 import { revalidatePath } from "next/cache";
+import { nextNumberRangeCode } from "@/lib/number-range";
 import { NumberRangeObject } from "../../../generated/prisma/enums";
 
-async function nextCodeFor(object: NumberRangeObject) {
-    const tenantId = await requireTenantId();
 
-    const nr = await prisma.numberRange.findUnique({
-        where: { tenantId_object: { tenantId, object } },
-        select: { id: true, nextNo: true, padding: true, prefix: true },
-    });
-    if (!nr) throw new Error(`NumberRange missing for ${object}`);
-
-    const seq = String(nr.nextNo).padStart(nr.padding, "0");
-    const prefix = nr.prefix ? `${nr.prefix}-` : "";
-    const code = `${prefix}${seq}`;
-
-    await prisma.numberRange.update({ where: { id: nr.id }, data: { nextNo: nr.nextNo + 1 } });
-    return code;
-}
 
 export async function listProjectsAction() {
     const tenantId = await requireTenantId();
@@ -67,7 +53,13 @@ export async function createProjectAction(formData: FormData) {
 
     if (!name) return { ok: false as const, message: "Nombre del proyecto requerido." };
 
-    const code = await nextCodeFor(NumberRangeObject.REMODELING_PROJECT);
+    const code = await nextNumberRangeCode({
+        tenantId,
+        object: NumberRangeObject.REMODELING_PROJECT,
+        defaultPrefix: "PR-",
+        defaultPadding: 6,
+        defaultNextNo: 1,
+    });
 
     const project = await prisma.remodelingProject.create({
         data: {
@@ -106,6 +98,8 @@ export async function createProjectAction(formData: FormData) {
     return { ok: true as const, id: project.id };
 }
 
+import { CostKind } from "../../../generated/prisma/enums";
+
 export async function getProjectAction(projectId: string) {
     const tenantId = await requireTenantId();
 
@@ -129,16 +123,98 @@ export async function getProjectAction(projectId: string) {
             orgUnit: { select: { id: true, code: true, name: true } },
             location: { select: { id: true, code: true, name: true, city: true, addressLine1: true } },
 
-            clientPartner: { select: { id: true, code: true, type: true, organizationName: true, firstName: true, lastName: true } },
+            clientPartner: {
+                select: { id: true, code: true, type: true, organizationName: true, firstName: true, lastName: true },
+            },
 
-            _count: { select: { tasks: true, projectPartners: true, quotes: true, changeOrders: true, expenses: true } },
+            // ✅ Presupuesto activo (última versión)
+            projectBudgets: {
+                orderBy: [{ version: "desc" }],
+                take: 1,
+                select: {
+                    id: true,
+                    version: true,
+                    status: true,
+                    name: true,
+                    updatedAt: true,
+                    lines: {
+                        select: { plannedAmount: true },
+                    },
+                },
+            },
+
+            // ✅ Totales financieros simples (para pintar)
+            projectCosts: {
+                select: { kind: true, amount: true },
+            },
+            projectCommitments: {
+                select: { amount: true },
+            },
+            projectRevenues: {
+                select: { amount: true },
+            },
+
+            _count: {
+                select: {
+                    tasks: true,
+                    projectPartners: true,
+                    projectBudgets: true,
+                    projectCosts: true,
+                    projectCommitments: true,
+                    projectRevenues: true,
+                },
+            },
 
             updatedAt: true,
         },
     });
 
     if (!p) throw new Error("Project not found");
-    return p;
+
+    // --- Normalización SAP-like (resumen simple)
+    const activeBudget = p.projectBudgets[0] ?? null;
+    const plannedTotal = activeBudget
+        ? activeBudget.lines.reduce((acc, x) => acc + Number(x.plannedAmount ?? 0), 0)
+        : 0;
+
+    const actualTotal = p.projectCosts
+        .filter((x) => x.kind === CostKind.ACTUAL)
+        .reduce((acc, x) => acc + Number(x.amount ?? 0), 0);
+
+    const budgetLinesTotal = p.projectCosts
+        .filter((x) => x.kind === CostKind.BUDGET)
+        .reduce((acc, x) => acc + Number(x.amount ?? 0), 0);
+
+    const committedTotal = p.projectCommitments.reduce((acc, x) => acc + Number(x.amount ?? 0), 0);
+    const revenueTotal = p.projectRevenues.reduce((acc, x) => acc + Number(x.amount ?? 0), 0);
+
+    // Ojo: si estás usando ProjectCost(kind=BUDGET) como "plan", puedes decidir:
+    // - planned = sum(lines) (recomendado)
+    // - planned = sum(ProjectCost(kind=BUDGET)) (si lo llegas a usar)
+    // Por ahora dejo plannedTotal basado en líneas.
+
+    return {
+        ...p,
+        // limpia payloads pesados si quieres (optional)
+        projectBudgets: undefined,
+        projectCosts: undefined,
+        projectCommitments: undefined,
+        projectRevenues: undefined,
+
+        budget: {
+            active: activeBudget
+                ? { id: activeBudget.id, version: activeBudget.version, status: activeBudget.status, name: activeBudget.name, updatedAt: activeBudget.updatedAt }
+                : null,
+            totals: {
+                plannedTotal,
+                committedTotal,
+                actualTotal,
+                revenueTotal,
+                // si lo quieres exponer para auditoría:
+                budgetLinesTotal,
+            },
+        },
+    };
 }
 
 export async function updateProjectAction(projectId: string, formData: FormData) {
