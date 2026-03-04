@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { getProjectAction } from "@/action/projects/projects";
-import { ProjectTabsClient } from "@/components";
+import { ProjectTabsClient, ProjectHeaderActionsClient } from "@/components";
 
 export default async function ProjectLayout({
     children,
@@ -29,6 +29,10 @@ export default async function ProjectLayout({
                             <span className="text-[11px] px-2 py-1 rounded-full bg-fuchsia-500/10 text-fuchsia-500 dark:text-fuchsia-300 border border-fuchsia-500/20">
                                 {project.status}
                             </span>
+                            <span>
+                                {(project as any).archivedAt ? <span className="text-[11px] px-2 py-1 rounded-full bg-fuchsia-500/10 text-fuchsia-500 dark:text-fuchsia-300 border border-fuchsia-500/20">ARCHIVED</span> : null}
+                                {(project as any).deletedAt ? <span className="text-[11px] px-2 py-1 rounded-full bg-fuchsia-500/10 text-fuchsia-500 dark:text-fuchsia-300 border border-fuchsia-500/20">DELETED</span> : null}
+                            </span>
                         </div>
 
                         <h1 className="mt-2 text-2xl font-bold tracking-tight text-slate-900 dark:text-slate-100 truncate">
@@ -44,6 +48,13 @@ export default async function ProjectLayout({
                         >
                             Ver tareas
                         </Link>
+
+                        <ProjectHeaderActionsClient
+                            projectId={project.id}
+                            status={String(project.status)}
+                            archivedAt={(project as any).archivedAt ?? null}
+                            deletedAt={(project as any).deletedAt ?? null}
+                        />
                     </div>
                 </div>
 

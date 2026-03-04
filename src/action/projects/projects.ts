@@ -1,18 +1,54 @@
 "use server";
 
 import { prisma } from "@/lib/prisma";
-import { requireTenantId } from "@/lib/auth/session";
+import { requireTenantId, requireUserId } from "@/lib/auth/session";
 import { revalidatePath } from "next/cache";
 import { nextNumberRangeCode } from "@/lib/number-range";
-import { NumberRangeObject } from "../../../generated/prisma/enums";
+import { NumberRangeObject, CostKind } from "../../../generated/prisma/enums";
 
+export type ProjectsListMode = "active" | "archived" | "deleted" | "all";
 
+async function getProjectGate(tenantId: string, projectId: string) {
+    const p = await prisma.remodelingProject.findFirst({
+        where: { id: projectId, tenantId },
+        select: {
+            id: true,
+            code: true,
+            name: true,
+            status: true,
+            archivedAt: true,
+            deletedAt: true,
+        },
+    });
+    if (!p) return { ok: false as const, message: "Proyecto no encontrado." };
+    if (p.deletedAt) return { ok: false as const, message: "Proyecto eliminado (soft delete). Acción no permitida." };
+    return { ok: true as const, project: p };
+}
 
-export async function listProjectsAction() {
+function now() {
+    return new Date();
+}
+
+export async function listProjectsAction(mode: ProjectsListMode = "active") {
     const tenantId = await requireTenantId();
 
+    const whereBase: any = { tenantId };
+
+    if (mode === "active") {
+        whereBase.deletedAt = null;
+        whereBase.archivedAt = null;
+    }
+    if (mode === "archived") {
+        whereBase.deletedAt = null;
+        whereBase.archivedAt = { not: null };
+    }
+    if (mode === "deleted") {
+        whereBase.deletedAt = { not: null };
+    }
+    // mode === "all" => no filtros extra
+
     return prisma.remodelingProject.findMany({
-        where: { tenantId },
+        where: whereBase,
         orderBy: [{ updatedAt: "desc" }],
         select: {
             id: true,
@@ -23,6 +59,10 @@ export async function listProjectsAction() {
             countryCode: true,
             targetEndDate: true,
             updatedAt: true,
+
+            archivedAt: true,
+            deletedAt: true,
+
             _count: { select: { tasks: true, projectPartners: true } },
             clientPartner: { select: { id: true, organizationName: true, firstName: true, lastName: true } },
         },
@@ -98,8 +138,6 @@ export async function createProjectAction(formData: FormData) {
     return { ok: true as const, id: project.id };
 }
 
-import { CostKind } from "../../../generated/prisma/enums";
-
 export async function getProjectAction(projectId: string) {
     const tenantId = await requireTenantId();
 
@@ -113,6 +151,12 @@ export async function getProjectAction(projectId: string) {
             scopeSummary: true,
             startDate: true,
             targetEndDate: true,
+
+            archivedAt: true,
+            archivedByUserId: true,
+            deletedAt: true,
+            deletedByUserId: true,
+            deleteReason: true,
 
             addressLine1: true,
             city: true,
@@ -300,6 +344,169 @@ export async function updateProjectAction(projectId: string, formData: FormData)
         },
     });
 
+    revalidatePath(`/projects/${projectId}`);
+    return { ok: true as const };
+}
+
+export async function archiveProjectAction(projectId: string) {
+    const tenantId = await requireTenantId();
+    const userId = await requireUserId();
+
+    const gate = await getProjectGate(tenantId, projectId);
+    if (!gate.ok) return gate;
+
+    if (gate.project.archivedAt) {
+        return { ok: false as const, message: "El proyecto ya está archivado." };
+    }
+
+    await prisma.$transaction(async (tx) => {
+        await tx.remodelingProject.update({
+            where: { id: projectId },
+            data: { archivedAt: now(), archivedByUserId: userId },
+        });
+
+        await tx.timelineEvent.create({
+            data: {
+                tenantId,
+                projectId,
+                type: "PROJECT_ARCHIVED",
+                title: "Proyecto archivado",
+                description: `Se archivó el proyecto ${gate.project.code}`,
+                actorUserId: userId,
+                senderKind: "SYSTEM",
+            },
+        });
+    });
+
+    revalidatePath("/projects");
+    revalidatePath(`/projects/${projectId}`);
+    return { ok: true as const };
+}
+
+export async function unarchiveProjectAction(projectId: string) {
+    const tenantId = await requireTenantId();
+    const userId = await requireUserId();
+
+    const gate = await getProjectGate(tenantId, projectId);
+    if (!gate.ok) return gate;
+
+    if (!gate.project.archivedAt) {
+        return { ok: false as const, message: "El proyecto no está archivado." };
+    }
+
+    await prisma.$transaction(async (tx) => {
+        await tx.remodelingProject.update({
+            where: { id: projectId },
+            data: { archivedAt: null, archivedByUserId: null },
+        });
+
+        await tx.timelineEvent.create({
+            data: {
+                tenantId,
+                projectId,
+                type: "PROJECT_UNARCHIVED",
+                title: "Proyecto desarchivado",
+                description: `Se desarchivó el proyecto ${gate.project.code}`,
+                actorUserId: userId,
+                senderKind: "SYSTEM",
+            },
+        });
+    });
+
+    revalidatePath("/projects");
+    revalidatePath(`/projects/${projectId}`);
+    return { ok: true as const };
+}
+
+export async function setProjectStatusAction(projectId: string, nextStatus: string) {
+    const tenantId = await requireTenantId();
+    const userId = await requireUserId();
+
+    const gate = await getProjectGate(tenantId, projectId);
+    if (!gate.ok) return gate;
+
+    // Regla SAP-like: si está archivado, no dejar cambiar status (opcional)
+    if (gate.project.archivedAt) {
+        return { ok: false as const, message: "Proyecto archivado. Desarchiva para modificar." };
+    }
+
+    // (Opcional) Valida allowed transitions aquí si quieres.
+
+    await prisma.$transaction(async (tx) => {
+        await tx.remodelingProject.update({
+            where: { id: projectId },
+            data: { status: nextStatus as any },
+        });
+
+        await tx.timelineEvent.create({
+            data: {
+                tenantId,
+                projectId,
+                type: "PROJECT_STATUS_CHANGED",
+                title: "Estado del proyecto actualizado",
+                description: `Estado: ${gate.project.status} → ${nextStatus}`,
+                actorUserId: userId,
+                senderKind: "SYSTEM",
+                metadata: { from: gate.project.status, to: nextStatus },
+            },
+        });
+    });
+
+    revalidatePath("/projects");
+    revalidatePath(`/projects/${projectId}`);
+    return { ok: true as const };
+}
+
+export async function softDeleteProjectAction(projectId: string, reason?: string) {
+    const tenantId = await requireTenantId();
+    const userId = await requireUserId();
+
+    const gate = await getProjectGate(tenantId, projectId);
+    if (!gate.ok) return gate;
+
+    // Protección: si ya tiene vida contable, NO permitir delete (recomendado)
+    const [budgetsCount, costsCount, commitmentsCount, revenuesCount, tasksCount] = await Promise.all([
+        prisma.projectBudget.count({ where: { tenantId, projectId } }),
+        prisma.projectCost.count({ where: { tenantId, projectId } }),
+        prisma.projectCommitment.count({ where: { tenantId, projectId } }),
+        prisma.projectRevenue.count({ where: { tenantId, projectId } }),
+        prisma.remodelingTask.count({ where: { tenantId, projectId } }),
+    ]);
+
+    const hasOperationalData = budgetsCount + costsCount + commitmentsCount + revenuesCount + tasksCount > 0;
+
+    if (hasOperationalData) {
+        return {
+            ok: false as const,
+            message: "No se puede eliminar: el proyecto tiene información relacionada (tareas/presupuestos/movimientos). Usa ARCHIVAR o CANCELAR.",
+        };
+    }
+
+    await prisma.$transaction(async (tx) => {
+        await tx.remodelingProject.update({
+            where: { id: projectId },
+            data: {
+                deletedAt: now(),
+                deletedByUserId: userId,
+                deleteReason: (reason ?? "").trim() || null,
+            },
+        });
+
+        await tx.timelineEvent.create({
+            data: {
+                tenantId,
+                projectId,
+                type: "PROJECT_SOFT_DELETED",
+                title: "Proyecto eliminado (soft delete)",
+                description: `Se eliminó el proyecto ${gate.project.code}`,
+                actorUserId: userId,
+                senderKind: "SYSTEM",
+                metadata: { reason: (reason ?? "").trim() || null },
+            },
+        });
+    });
+
+    revalidatePath("/projects");
     revalidatePath(`/projects/${projectId}`);
     return { ok: true as const };
 }

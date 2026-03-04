@@ -35,6 +35,7 @@ export { ProjectTabsClient } from "./private/projects/ProjectTabsClient"
 export { ProjectTasksBoardClient } from "./private/projects/ProjectTasksBoardClient"
 export { ProjectTeamClient } from "./private/projects/ProjectTeamClient"
 export { ProjectBudgetClient } from "./private/projects/ProjectBudgetClient"
+export { ProjectHeaderActionsClient } from "./private/projects/ProjectHeaderActionsClient"
 
 // Business Partner
 export { BusinessPartnerPage } from "./private/business-partner/BusinessPartnerPage"

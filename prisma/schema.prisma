@@ -517,9 +517,9 @@ model User {
   passwordHash    String
   isActive        Boolean @default(true)
 
-  memberships           TenantMembership[]
-  sessions              Session[]
-  authEvents            AuthEvent[]
+  memberships TenantMembership[]
+  sessions    Session[]
+  authEvents  AuthEvent[]
   // userPreference UserPreference?
   // changeOrder ChangeOrder[]
 
@@ -778,6 +778,13 @@ model RemodelingProject {
   // Resumen del alcance
   scopeSummary String?
 
+  archivedAt       DateTime?
+  archivedByUserId String?
+
+  deletedAt       DateTime?
+  deletedByUserId String?
+  deleteReason    String?
+
   tenant  Tenant   @relation(fields: [tenantId], references: [id], onDelete: Restrict)
   country Country? @relation(fields: [countryCode], references: [code], onDelete: Restrict)
 
@@ -807,6 +814,8 @@ model RemodelingProject {
   @@index([tenantId, clientPartnerId])
   @@index([tenantId, locationId])
   @@index([tenantId, orgUnitId])
+  @@index([tenantId, archivedAt])
+  @@index([tenantId, deletedAt])
 }
 
 model RemodelingTask {
@@ -877,7 +886,7 @@ model TimelineEvent {
   conversation Conversation? @relation(fields: [conversationId], references: [id], onDelete: SetNull)
   message      Message?      @relation(fields: [messageId], references: [id], onDelete: SetNull)
 
-  task        RemodelingTask? @relation(fields: [taskId], references: [id], onDelete: SetNull)
+  task RemodelingTask? @relation(fields: [taskId], references: [id], onDelete: SetNull)
 
   createdAt DateTime @default(now())
 
@@ -1122,7 +1131,7 @@ model ProjectCost {
   @@index([tenantId, projectId, kind])
   @@index([tenantId, category])
   @@index([tenantId, partnerId])
-    @@index([currencyCode])
+  @@index([currencyCode])
 }
 
 model ProjectCommitment {
