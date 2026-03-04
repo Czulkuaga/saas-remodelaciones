@@ -126,6 +126,24 @@ export async function getProjectAction(projectId: string) {
             clientPartner: {
                 select: { id: true, code: true, type: true, organizationName: true, firstName: true, lastName: true },
             },
+            projectPartners: {
+                orderBy: [{ role: "asc" }, { isPrimary: "desc" }], // opcional
+                select: {
+                    id: true,
+                    role: true,        // o roleKey / roleId según tu schema
+                    isPrimary: true,
+                    partner: {
+                        select: {
+                            id: true,
+                            code: true,
+                            type: true,
+                            organizationName: true,
+                            firstName: true,
+                            lastName: true,
+                        },
+                    },
+                },
+            },
 
             // ✅ Presupuesto activo (última versión)
             projectBudgets: {
@@ -193,6 +211,21 @@ export async function getProjectAction(projectId: string) {
     // - planned = sum(ProjectCost(kind=BUDGET)) (si lo llegas a usar)
     // Por ahora dejo plannedTotal basado en líneas.
 
+    const teamPartners = p.projectPartners.map((pp) => {
+        const bp = pp.partner;
+        const name =
+            bp.organizationName ??
+            [bp.firstName, bp.lastName].filter(Boolean).join(" ") ??
+            bp.code;
+
+        return {
+            id: bp.id,
+            label: `${bp.code} • ${name}`,
+            roleLabel: String(pp.role ?? ""),   // si existe
+            isPrimary: !!pp.isPrimary,
+        };
+    });
+
     return {
         ...p,
         // limpia payloads pesados si quieres (optional)
@@ -200,7 +233,7 @@ export async function getProjectAction(projectId: string) {
         projectCosts: undefined,
         projectCommitments: undefined,
         projectRevenues: undefined,
-
+        teamPartners,
         budget: {
             active: activeBudget
                 ? { id: activeBudget.id, version: activeBudget.version, status: activeBudget.status, name: activeBudget.name, updatedAt: activeBudget.updatedAt }

@@ -14,7 +14,7 @@ export default async function ProjectBudgetPage({
 }) {
     const { id } = await params;
 
-    await getProjectAction(id);
+    const project = await getProjectAction(id);
 
     const s = await getProjectBudgetSummaryAction(id);
 
@@ -51,6 +51,7 @@ export default async function ProjectBudgetPage({
                 activeBudget={s.activeBudget}
                 draftBudget={s.draftBudget}
                 lines={s.lines}
+                teamPartners={project.teamPartners} // ✅ aquí
             />
         </div>
     );

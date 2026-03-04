@@ -1,7 +1,7 @@
 "use server";
 
 import { prisma } from "@/lib/prisma";
-import { requireTenantId } from "@/lib/auth/session";
+import { requireTenantId, requireUserId } from "@/lib/auth/session";
 import { revalidatePath } from "next/cache";
 import { BudgetStatus, CostKind, CostCategory } from "../../../generated/prisma/enums";
 import { Prisma } from "../../../generated/prisma/client";
@@ -40,11 +40,11 @@ export type BudgetLineSummary = {
 
 export async function createInitialBudgetAction(projectId: string) {
     const tenantId = await requireTenantId();
+    const userId = await requireUserId();
 
-    // valida proyecto existe y es del tenant (seguro)
     const project = await prisma.remodelingProject.findFirst({
         where: { id: projectId, tenantId },
-        select: { id: true },
+        select: { id: true, code: true, name: true },
     });
     if (!project) return { ok: false as const, message: "Proyecto no encontrado." };
 
@@ -54,15 +54,37 @@ export async function createInitialBudgetAction(projectId: string) {
     });
     if (exists) return { ok: false as const, message: "Ya existe un presupuesto para este proyecto." };
 
-    const budget = await prisma.projectBudget.create({
-        data: {
-            tenantId,
-            projectId,
-            version: 1,
-            status: BudgetStatus.DRAFT,
-            name: "Presupuesto Base",
-        },
-        select: { id: true, version: true, status: true },
+    const budget = await prisma.$transaction(async (tx) => {
+        const created = await tx.projectBudget.create({
+            data: {
+                tenantId,
+                projectId,
+                version: 1,
+                status: BudgetStatus.DRAFT,
+                name: "Presupuesto Base",
+            },
+            select: { id: true, version: true, status: true, name: true },
+        });
+
+        await tx.timelineEvent.create({
+            data: {
+                tenantId,
+                projectId,
+                type: "BUDGET_CREATED",
+                title: "Presupuesto creado",
+                description: `v${created.version} • ${created.status} • ${created.name ?? "—"}`,
+                actorUserId: userId,
+                senderKind: "SYSTEM",
+                metadata: {
+                    budgetId: created.id,
+                    version: created.version,
+                    status: created.status,
+                    name: created.name,
+                },
+            },
+        });
+
+        return created;
     });
 
     revalidatePath(`/projects/${projectId}/budget`);
@@ -185,28 +207,56 @@ export async function createBudgetLineAction(projectId: string, budgetId: string
     }
 
     try {
-        const line = await prisma.projectBudgetLine.create({
-            data: {
-                tenantId,
-                budgetId,
-                code,
-                title,
-                category,
-                plannedAmount, // capítulo => 0 ; detalle => > 0
-                currencyCode,
-                parentId,
-            },
-            select: {
-                id: true,
-                code: true,
-                title: true,
-                category: true,
-                plannedAmount: true,
-                currencyCode: true,
-                parentId: true,
-                createdAt: true,
-                updatedAt: true,
-            },
+        const userId = await requireUserId();
+
+        const line = await prisma.$transaction(async (tx) => {
+            const created = await tx.projectBudgetLine.create({
+                data: {
+                    tenantId,
+                    budgetId,
+                    code,
+                    title,
+                    category,
+                    plannedAmount,
+                    currencyCode,
+                    parentId,
+                },
+                select: {
+                    id: true,
+                    code: true,
+                    title: true,
+                    category: true,
+                    plannedAmount: true,
+                    currencyCode: true,
+                    parentId: true,
+                    createdAt: true,
+                    updatedAt: true,
+                },
+            });
+
+            await tx.timelineEvent.create({
+                data: {
+                    tenantId,
+                    projectId,
+                    type: "BUDGET_LINE_CREATED",
+                    title: "Línea presupuestal creada",
+                    description: `${created.code} • ${created.title}`,
+                    actorUserId: userId,
+                    senderKind: "SYSTEM",
+                    metadata: {
+                        budgetId,
+                        budgetLineId: created.id,
+                        code: created.code,
+                        title: created.title,
+                        category: created.category,
+                        plannedAmount: Number(created.plannedAmount),
+                        currencyCode: created.currencyCode,
+                        parentId: created.parentId,
+                    },
+                },
+            });
+
+            return created;
         });
 
         revalidatePath(`/projects/${projectId}/budget`);
@@ -215,7 +265,7 @@ export async function createBudgetLineAction(projectId: string, budgetId: string
             ok: true as const,
             line: {
                 ...line,
-                plannedAmount: Number(line.plannedAmount), // serializable
+                plannedAmount: Number(line.plannedAmount),
             },
         };
     } catch (e: any) {
@@ -229,45 +279,48 @@ export async function createBudgetLineAction(projectId: string, budgetId: string
 
 export async function approveBudgetAction(projectId: string, budgetId: string) {
     const tenantId = await requireTenantId();
+    const userId = await requireUserId();
 
     const b = await prisma.projectBudget.findFirst({
         where: { id: budgetId, tenantId, projectId },
-        select: { id: true, status: true, version: true },
+        select: { id: true, status: true, version: true, name: true },
     });
 
-    if (!b) {
-        return { ok: false as const, message: "Presupuesto no encontrado." };
-    }
-
-    if (b.status !== BudgetStatus.DRAFT) {
-        return { ok: false as const, message: "Solo se puede aprobar un presupuesto en DRAFT." };
-    }
+    if (!b) return { ok: false as const, message: "Presupuesto no encontrado." };
+    if (b.status !== BudgetStatus.DRAFT) return { ok: false as const, message: "Solo se puede aprobar un presupuesto en DRAFT." };
 
     await prisma.$transaction(async (tx) => {
-        // 1️⃣ Cerrar todos los APPROVED actuales del proyecto
-        await tx.projectBudget.updateMany({
-            where: {
-                tenantId,
-                projectId,
-                status: BudgetStatus.APPROVED,
-            },
-            data: {
-                status: BudgetStatus.CLOSED,
-            },
+        const closed = await tx.projectBudget.updateMany({
+            where: { tenantId, projectId, status: BudgetStatus.APPROVED },
+            data: { status: BudgetStatus.CLOSED },
         });
 
-        // 2️⃣ Aprobar el DRAFT actual
         await tx.projectBudget.update({
             where: { id: b.id },
+            data: { status: BudgetStatus.APPROVED },
+        });
+
+        await tx.timelineEvent.create({
             data: {
-                status: BudgetStatus.APPROVED,
+                tenantId,
+                projectId,
+                type: "BUDGET_APPROVED",
+                title: "Presupuesto aprobado",
+                description: `v${b.version} • ${b.name ?? "—"} • (cerrados: ${closed.count})`,
+                actorUserId: userId,
+                senderKind: "SYSTEM",
+                metadata: {
+                    budgetId: b.id,
+                    version: b.version,
+                    name: b.name,
+                    closedApprovedCount: closed.count,
+                },
             },
         });
     });
 
     revalidatePath(`/projects/${projectId}/budget`);
     revalidatePath(`/projects/${projectId}`);
-
     return { ok: true as const };
 }
 
@@ -306,7 +359,7 @@ export async function createNextBudgetVersionAction(projectId: string) {
             status: BudgetStatus.DRAFT,
             name: `Revisión ${nextVersion}`,
         },
-        select: { id: true, version: true, status: true },
+        select: { id: true, version: true, status: true, name: true },
     });
 
     // 4) copiar líneas (preservando jerarquía)
@@ -370,23 +423,53 @@ export async function createNextBudgetVersionAction(projectId: string) {
         idMap.set(l.id, created.id);
     }
 
+    const userId = await requireUserId();
+
+    await prisma.timelineEvent.create({
+        data: {
+            tenantId,
+            projectId,
+            type: "BUDGET_DRAFT_CREATED",
+            title: "Borrador de presupuesto creado",
+            description: `v${newBudget.version} • ${newBudget.name ?? "—"}`,
+            actorUserId: userId,
+            senderKind: "SYSTEM",
+            metadata: {
+                newBudgetId: newBudget.id,
+                newVersion: newBudget.version,
+                fromBudgetId: activeApproved.id,
+                fromVersion: activeApproved.version,
+                copiedLines: oldLines.length,
+            },
+        },
+    });
+
     revalidatePath(`/projects/${projectId}/budget`);
     return { ok: true as const, budget: newBudget };
 }
 
 export async function deleteBudgetLineAction(projectId: string, budgetId: string, lineId: string) {
     const tenantId = await requireTenantId();
+    const userId = await requireUserId();
 
     const b = await prisma.projectBudget.findFirst({
         where: { id: budgetId, tenantId, projectId },
-        select: { id: true, status: true },
+        select: { id: true, status: true, version: true, name: true },
     });
     if (!b) return { ok: false as const, message: "Presupuesto no encontrado." };
     if (b.status !== BudgetStatus.DRAFT) return { ok: false as const, message: "Solo puedes eliminar líneas en DRAFT." };
 
     const line = await prisma.projectBudgetLine.findFirst({
         where: { id: lineId, tenantId, budgetId },
-        select: { id: true },
+        select: {
+            id: true,
+            code: true,
+            title: true,
+            category: true,
+            plannedAmount: true,
+            currencyCode: true,
+            parentId: true,
+        },
     });
     if (!line) return { ok: false as const, message: "Línea no encontrada." };
 
@@ -401,7 +484,33 @@ export async function deleteBudgetLineAction(projectId: string, budgetId: string
         return { ok: false as const, message: "No puedes borrar una línea con movimientos (compromisos/gastos)." };
     }
 
-    await prisma.projectBudgetLine.delete({ where: { id: lineId } });
+    await prisma.$transaction(async (tx) => {
+        await tx.projectBudgetLine.delete({ where: { id: lineId } });
+
+        await tx.timelineEvent.create({
+            data: {
+                tenantId,
+                projectId,
+                type: "BUDGET_LINE_DELETED",
+                title: "Línea presupuestal eliminada",
+                description: `${line.code} • ${line.title}`,
+                actorUserId: userId,
+                senderKind: "SYSTEM",
+                metadata: {
+                    budgetId,
+                    budgetVersion: b.version,
+                    budgetName: b.name,
+                    budgetLineId: line.id,
+                    code: line.code,
+                    title: line.title,
+                    category: line.category,
+                    plannedAmount: Number(line.plannedAmount),
+                    currencyCode: line.currencyCode,
+                    parentId: line.parentId,
+                },
+            },
+        });
+    });
 
     revalidatePath(`/projects/${projectId}/budget`);
     return { ok: true as const };
