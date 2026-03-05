@@ -62,7 +62,7 @@ const ORG_SECTIONS = [
     items: [
       {
         key: "users",
-        href: "/admin/users",
+        href: "/users",
         label: "Usuarios",
         icon: <FaUsers size={18} />,
       },

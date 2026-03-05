@@ -41,3 +41,7 @@ export { ProjectHeaderActionsClient } from "./private/projects/ProjectHeaderActi
 export { BusinessPartnerPage } from "./private/business-partner/BusinessPartnerPage"
 export { BusinessPartnerCreateFormClient } from "./private/business-partner/BusinessPartnerCreateFormClient"
 export { BusinessPartnerEditFormClient } from "./private/business-partner/BusinessPartnerEditFormClient"
+
+// Users
+// export { UsersTable } from "./private/users/UsersTable"
+// export { UserFormModal } from "./private/users/UserFormModal"
