@@ -103,7 +103,7 @@ const ORG_SECTIONS = [
       // },
       {
         key: "integrations",
-        href: "/admin/integrations",
+        href: "/integrations",
         label: "Integraciones",
         icon: <FiLink size={18} />,
       },

@@ -31,7 +31,7 @@ export function ClinicalAlerts({ count, items }: { count: number; items: AlertIt
         </span>
       </div>
 
-      <div className="flex-1 overflow-y-auto max-h-100">
+      <div className="flex-1 overflow-y-auto md:max-h-250">
         <div className="p-4 space-y-4">
           {items.map((a, idx) => {
             const s = toneStyles(a.tone);
@@ -54,14 +54,14 @@ export function ClinicalAlerts({ count, items }: { count: number; items: AlertIt
         </div>
       </div>
 
-      <div className="p-4 bg-slate-50 dark:bg-slate-700/50 border-t border-slate-100 dark:border-slate-700">
+      {/* <div className="p-4 bg-slate-50 dark:bg-slate-700/50 border-t border-slate-100 dark:border-slate-700">
         <button
           className="w-full py-2 text-sm font-bold text-slate-600 dark:text-slate-300 hover:bg-white dark:hover:bg-slate-800 rounded-lg transition-all border border-transparent hover:border-slate-200"
           type="button"
         >
           Marcar todas como leídas
         </button>
-      </div>
+      </div> */}
     </div>
   );
 }
