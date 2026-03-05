@@ -74,7 +74,7 @@ const ORG_SECTIONS = [
       // },
       {
         key: "roles",
-        href: "/admin/roles",
+        href: "/roles",
         label: "Roles y permisos",
         icon: <MdOutlineSecurity size={18} />,
       },
