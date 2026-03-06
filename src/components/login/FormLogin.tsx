@@ -8,6 +8,7 @@ import { loginSchema, type LoginInput } from "@/lib/zod/auth";
 import type { z } from "zod";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
+import { GrHide, GrView } from "react-icons/gr";
 
 type FieldErrors = Partial<Record<keyof LoginInput, string>>;
 
@@ -261,7 +262,7 @@ export const FormLogin = () => {
                         aria-label={showPassword ? "Ocultar contraseña" : "Mostrar contraseña"}
                     >
                         <span className="material-symbols-outlined text-lg">
-                            {showPassword ? "visibility_off" : "visibility"}
+                            {showPassword ? <GrHide size={20}/> : <GrView size={18}/>}
                         </span>
                     </button>
                 </div>

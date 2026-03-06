@@ -1,4 +1,7 @@
 import { FormLogin } from "@/components";
+import { BiSolidErrorCircle } from "react-icons/bi";
+import { CiWarning } from "react-icons/ci";
+import { FaCircleInfo } from "react-icons/fa6";
 import { SiBaremetrics } from "react-icons/si";
 
 type LoginSearchParams = {
@@ -63,18 +66,17 @@ function Alert({ reason }: { reason?: string }) {
       "border-rose-500/30 bg-rose-500/10 text-rose-900 dark:text-rose-200 dark:border-rose-500/30 dark:bg-rose-500/10",
   };
 
-  const iconByTone: Record<Banner["tone"], string> = {
-    info: "info",
-    warning: "warning",
-    danger: "error",
+  const iconByTone: Record<Banner["tone"], React.ReactNode> = {
+    info: <FaCircleInfo size={30} />,
+    warning: <CiWarning size={30} />,
+    danger: <BiSolidErrorCircle size={30} />,
   };
 
   return (
     <div className={`mb-4 rounded-xl border px-4 py-3 ${toneStyles[b.tone]}`}>
       <div className="flex items-start gap-3">
-        <span className="material-symbols-outlined mt-0.5 text-base">
-          {iconByTone[b.tone]}
-        </span>
+        <div className="mt-0.5">{iconByTone[b.tone]}</div>
+
         <div className="min-w-0">
           <p className="text-sm font-semibold leading-5">{b.title}</p>
           <p className="mt-0.5 text-sm leading-5 opacity-90">{b.message}</p>
