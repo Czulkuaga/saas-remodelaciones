@@ -233,7 +233,7 @@ function TenantPickerModal(props: {
 }
 
 export const FormTenant = () => {
-    const ROOT_DOMAIN = process.env.NEXT_PUBLIC_ROOT_DOMAIN ?? "medicloud.com";
+    const ROOT_DOMAIN = process.env.NEXT_PUBLIC_ROOT_DOMAIN ?? "remodelaciones.app";
 
     const sp = useSearchParams();
     const nextPath = useMemo(() => sanitizeNext(sp.get("next")), [sp]);
