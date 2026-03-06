@@ -37,10 +37,10 @@ export async function POST(req: NextRequest) {
 
         if (t) {
             if (t.deletedAt || t.status === "DELETED") {
-                return NextResponse.json({ ok: false, code: "TENANT_DELETED", message: "This clinic is deleted.", tenant: { slug: t.slug, name: t.name, status: t.status } }, { status: 410 });
+                return NextResponse.json({ ok: false, code: "TENANT_DELETED", message: "Esta Organización ha sido eliminada", tenant: { slug: t.slug, name: t.name, status: t.status } }, { status: 410 });
             }
             if (t.status === "SUSPENDED") {
-                return NextResponse.json({ ok: false, code: "TENANT_SUSPENDED", message: "This clinic is suspended.", tenant: { slug: t.slug, name: t.name, status: t.status } }, { status: 423 });
+                return NextResponse.json({ ok: false, code: "TENANT_SUSPENDED", message: "Esta organización está suspendida", tenant: { slug: t.slug, name: t.name, status: t.status } }, { status: 423 });
             }
             if (t.status === "ACTIVE") {
                 return NextResponse.json({ ok: true, slug: t.slug, name: t.name });
@@ -62,7 +62,7 @@ export async function POST(req: NextRequest) {
 
     if (candidates.length === 0) {
         return NextResponse.json(
-            { ok: false, code: "NOT_FOUND", message: "Clinic not found. Please check the name or workspace URL." },
+            { ok: false, code: "NOT_FOUND", message: "Organización no encontrada. Por favor verifique el nombre de su estación de su compañía." },
             { status: 404 }
         );
     }
@@ -75,7 +75,7 @@ export async function POST(req: NextRequest) {
 
     // No ACTIVE among matches
     return NextResponse.json(
-        { ok: false, code: "NO_ACTIVE", message: "No active clinic matches your search." },
+        { ok: false, code: "NO_ACTIVE", message: "No hay resultados activos para esta consulta." },
         { status: 409 }
     );
 }
