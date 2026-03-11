@@ -22,7 +22,7 @@ const BANNERS: Record<string, Banner> = {
     message: "Tu sesión ha expirado. Por favor, inicia sesión de nuevo.",
     tone: "warning",
   },
-  session_revoked: {
+  revoked: {
     title: "Sesión revocada",
     message:
       "Tu sesión se cerró porque se inició una nueva sesión en otro dispositivo. Inicia sesión nuevamente para continuar.",
