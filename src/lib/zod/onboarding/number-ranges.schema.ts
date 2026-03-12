@@ -10,7 +10,7 @@ export const numberRangeItemSchema = z.object({
         .string()
         .trim()
         .min(1, "El prefijo es obligatorio.")
-        .max(10, "El prefijo no puede superar 10 caracteres."),
+        .max(6, "El prefijo no puede superar 6 caracteres."),
 
     startNumber: z.coerce
         .number()

@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { GoImage, GoTag, GoCheckCircle } from "react-icons/go";
 import { LuPaintRoller } from "react-icons/lu";
@@ -26,6 +26,24 @@ export function BrandingForm() {
     const router = useRouter();
     const { draft, hydrated, updateDraft } = useOnboardingDraft();
     const [errors, setErrors] = useState<FormErrors>({});
+
+    // Update Data Preview
+    useEffect(() => {
+        if (!hydrated) return;
+
+        updateDraft((prev) => {
+            if (prev.branding.brandName.trim()) return prev;
+            if (!prev.organization.displayName.trim()) return prev;
+
+            return {
+                ...prev,
+                branding: {
+                    ...prev.branding,
+                    brandName: prev.organization.displayName,
+                },
+            };
+        });
+    }, [hydrated, updateDraft]);
 
     const values = useMemo<BrandingFormValues>(
         () => ({
@@ -193,7 +211,7 @@ export function BrandingForm() {
                         </p>
                     </div>
 
-                    <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+                    <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-1 2xl:grid-cols-3 gap-4">
                         <div className={uploadCardClass}>
                             <div className="flex aspect-square items-center justify-center rounded-2xl border border-slate-800 bg-slate-900/70">
                                 {values.logoDarkUrl ? (
@@ -309,7 +327,7 @@ export function BrandingForm() {
                         </p>
                     </div>
 
-                    <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                    <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-1 2xl:grid-cols-2">
                         <div className="rounded-2xl border border-slate-800 bg-slate-950/70 p-4">
                             <div className="flex items-center gap-4">
                                 <div
@@ -419,7 +437,7 @@ export function BrandingForm() {
                         onClick={() => router.push("/onboarding/regional")}
                         className="rounded-xl border border-slate-800 bg-slate-900 px-4 py-2.5 text-sm font-medium text-slate-300 transition hover:bg-slate-800 cursor-pointer"
                     >
-                        Omitir por ahora
+                        Omitir
                     </button>
 
                     <button
@@ -428,7 +446,7 @@ export function BrandingForm() {
                         className="inline-flex items-center gap-2 rounded-xl bg-fuchsia-500 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-fuchsia-400 cursor-pointer"
                     >
                         Continuar
-                        <FaArrowRight size={18}/>
+                        <FaArrowRight size={18} />
                     </button>
                 </div>
             </div>

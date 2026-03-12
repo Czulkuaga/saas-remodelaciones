@@ -65,8 +65,8 @@ export function NumberRangesForm() {
 
     function updateRange(
         index: number,
-        field: "prefix" | "startNumber" | "padding" | "autoIncrement",
-        value: string | number | boolean
+        field: "prefix" | "startNumber" | "padding",
+        value: string | number
     ) {
         updateDraft((prev) => {
             const nextRanges = [...prev.numberRanges.ranges];
@@ -235,67 +235,186 @@ export function NumberRangesForm() {
                     </div>
                 </div>
 
-                <div className="overflow-x-auto">
-                    <table className="w-full min-w-230 text-left">
-                        <thead className="border-b border-slate-800 bg-slate-950/50 text-xs uppercase tracking-[0.18em] text-slate-500">
-                            <tr>
-                                <th className="px-6 py-4">Entidad</th>
-                                <th className="px-6 py-4">Prefijo</th>
-                                <th className="px-6 py-4">Inicial</th>
-                                <th className="px-6 py-4">Padding</th>
-                                <th className="px-6 py-4 text-center">Auto</th>
-                                <th className="px-6 py-4">Preview</th>
-                            </tr>
-                        </thead>
+                <div className="space-y-4">
+                    {/* Desktop table */}
+                    <div className="hidden overflow-x-auto xl:block">
+                        <table className="w-full min-w-245 text-left">
+                            <thead className="border-b border-slate-800 bg-slate-950/50 text-xs uppercase tracking-[0.18em] text-slate-500">
+                                <tr>
+                                    <th className="px-6 py-4">Entidad</th>
+                                    <th className="px-6 py-4">Prefijo</th>
+                                    <th className="px-6 py-4">Inicial</th>
+                                    <th className="px-6 py-4">Padding</th>
+                                    <th className="px-6 py-4 text-center">Modo</th>
+                                    <th className="px-6 py-4">Preview</th>
+                                </tr>
+                            </thead>
 
-                        <tbody className="divide-y divide-slate-800">
-                            {values.ranges.map((range, index) => {
-                                const rowErrors = errors.rows[index] ?? {};
-                                const preview = formatPreview(
-                                    range.prefix,
-                                    Number(range.startNumber || 0),
-                                    Number(range.padding || 1)
-                                );
+                            <tbody className="divide-y divide-slate-800">
+                                {values.ranges.map((range, index) => {
+                                    const rowErrors = errors.rows[index] ?? {};
+                                    const preview = formatPreview(
+                                        range.prefix,
+                                        Number(range.startNumber || 0),
+                                        Number(range.padding || 1)
+                                    );
 
-                                return (
-                                    <tr key={range.entity} className="hover:bg-slate-950/40">
-                                        <td className="px-6 py-5">
-                                            <div className="flex items-center gap-3">
-                                                <div className="rounded-xl bg-fuchsia-500/10 p-2 text-fuchsia-300">
-                                                    <GoTag className="text-base" />
+                                    return (
+                                        <tr key={range.entity} className="hover:bg-slate-950/40">
+                                            <td className="px-6 py-5">
+                                                <div className="flex items-center gap-3">
+                                                    <div className="rounded-xl bg-fuchsia-500/10 p-2 text-fuchsia-300">
+                                                        <GoTag className="text-base" />
+                                                    </div>
+                                                    <div>
+                                                        <p className="text-sm font-medium text-slate-100">
+                                                            {ENTITY_LABELS[range.entity] ?? range.entity}
+                                                        </p>
+                                                        <p className="text-xs text-slate-500">{range.entity}</p>
+                                                    </div>
                                                 </div>
-                                                <div>
-                                                    <p className="text-sm font-medium text-slate-100">
-                                                        {ENTITY_LABELS[range.entity] ?? range.entity}
+                                            </td>
+
+                                            <td className="px-6 py-5 align-top">
+                                                <input
+                                                    value={range.prefix}
+                                                    onChange={(e) =>
+                                                        updateRange(index, "prefix", e.target.value.toUpperCase())
+                                                    }
+                                                    className={[
+                                                        "w-24 rounded-xl border bg-slate-950 px-3 py-2 text-sm text-slate-100 outline-none transition",
+                                                        rowErrors.prefix
+                                                            ? "border-rose-500/50 focus:border-rose-500"
+                                                            : "border-slate-800 focus:border-fuchsia-500/40",
+                                                    ].join(" ")}
+                                                />
+                                                {rowErrors.prefix ? (
+                                                    <p className="mt-2 text-xs text-rose-400">{rowErrors.prefix}</p>
+                                                ) : null}
+                                            </td>
+
+                                            <td className="px-6 py-5 align-top">
+                                                <input
+                                                    type="number"
+                                                    value={range.startNumber}
+                                                    onChange={(e) =>
+                                                        updateRange(index, "startNumber", Number(e.target.value))
+                                                    }
+                                                    className={[
+                                                        "w-28 rounded-xl border bg-slate-950 px-3 py-2 text-sm text-slate-100 outline-none transition",
+                                                        rowErrors.startNumber
+                                                            ? "border-rose-500/50 focus:border-rose-500"
+                                                            : "border-slate-800 focus:border-fuchsia-500/40",
+                                                    ].join(" ")}
+                                                />
+                                                {rowErrors.startNumber ? (
+                                                    <p className="mt-2 text-xs text-rose-400">
+                                                        {rowErrors.startNumber}
                                                     </p>
-                                                    <p className="text-xs text-slate-500">
-                                                        {range.entity}
-                                                    </p>
-                                                </div>
+                                                ) : null}
+                                            </td>
+
+                                            <td className="px-6 py-5 align-top">
+                                                <select
+                                                    value={range.padding}
+                                                    onChange={(e) =>
+                                                        updateRange(index, "padding", Number(e.target.value))
+                                                    }
+                                                    className={[
+                                                        "w-24 rounded-xl border bg-slate-950 px-3 py-2 text-sm text-slate-100 outline-none transition",
+                                                        rowErrors.padding
+                                                            ? "border-rose-500/50 focus:border-rose-500"
+                                                            : "border-slate-800 focus:border-fuchsia-500/40",
+                                                    ].join(" ")}
+                                                >
+                                                    <option value={2}>2</option>
+                                                    <option value={4}>4</option>
+                                                    <option value={5}>5</option>
+                                                    <option value={6}>6</option>
+                                                    <option value={8}>8</option>
+                                                </select>
+                                                {rowErrors.padding ? (
+                                                    <p className="mt-2 text-xs text-rose-400">{rowErrors.padding}</p>
+                                                ) : null}
+                                            </td>
+
+                                            <td className="px-6 py-5 text-center">
+                                                <span className="inline-flex rounded-full border border-emerald-500/20 bg-emerald-500/10 px-3 py-1 text-xs font-semibold text-emerald-400">
+                                                    Auto
+                                                </span>
+                                            </td>
+
+                                            <td className="px-6 py-5">
+                                                <code className="rounded-xl bg-slate-950 px-3 py-2 text-xs font-bold text-fuchsia-300">
+                                                    {preview}
+                                                </code>
+                                            </td>
+                                        </tr>
+                                    );
+                                })}
+                            </tbody>
+                        </table>
+                    </div>
+
+                    {/* Mobile / tablet cards */}
+                    <div className="grid grid-cols-1 gap-4 xl:hidden">
+                        {values.ranges.map((range, index) => {
+                            const rowErrors = errors.rows[index] ?? {};
+                            const preview = formatPreview(
+                                range.prefix,
+                                Number(range.startNumber || 0),
+                                Number(range.padding || 1)
+                            );
+
+                            return (
+                                <div
+                                    key={range.entity}
+                                    className="rounded-2xl border border-slate-800 bg-slate-950/50 p-4"
+                                >
+                                    <div className="mb-4 flex items-start justify-between gap-3">
+                                        <div className="flex items-center gap-3">
+                                            <div className="rounded-xl bg-fuchsia-500/10 p-2 text-fuchsia-300">
+                                                <GoTag className="text-base" />
                                             </div>
-                                        </td>
+                                            <div>
+                                                <p className="text-sm font-medium text-slate-100">
+                                                    {ENTITY_LABELS[range.entity] ?? range.entity}
+                                                </p>
+                                                <p className="text-xs text-slate-500">{range.entity}</p>
+                                            </div>
+                                        </div>
 
-                                        <td className="px-6 py-5 align-top">
+                                        <span className="inline-flex rounded-full border border-emerald-500/20 bg-emerald-500/10 px-3 py-1 text-xs font-semibold text-emerald-400">
+                                            Auto
+                                        </span>
+                                    </div>
+
+                                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                                        <div className="space-y-2">
+                                            <label className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
+                                                Prefijo
+                                            </label>
                                             <input
                                                 value={range.prefix}
                                                 onChange={(e) =>
                                                     updateRange(index, "prefix", e.target.value.toUpperCase())
                                                 }
                                                 className={[
-                                                    "w-24 rounded-xl border bg-slate-950 px-3 py-2 text-sm text-slate-100 outline-none transition",
+                                                    "w-full rounded-xl border bg-slate-950 px-3 py-2 text-sm text-slate-100 outline-none transition",
                                                     rowErrors.prefix
                                                         ? "border-rose-500/50 focus:border-rose-500"
                                                         : "border-slate-800 focus:border-fuchsia-500/40",
                                                 ].join(" ")}
                                             />
                                             {rowErrors.prefix ? (
-                                                <p className="mt-2 text-xs text-rose-400">
-                                                    {rowErrors.prefix}
-                                                </p>
+                                                <p className="text-xs text-rose-400">{rowErrors.prefix}</p>
                                             ) : null}
-                                        </td>
+                                        </div>
 
-                                        <td className="px-6 py-5 align-top">
+                                        <div className="space-y-2">
+                                            <label className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
+                                                Inicial
+                                            </label>
                                             <input
                                                 type="number"
                                                 value={range.startNumber}
@@ -303,27 +422,28 @@ export function NumberRangesForm() {
                                                     updateRange(index, "startNumber", Number(e.target.value))
                                                 }
                                                 className={[
-                                                    "w-28 rounded-xl border bg-slate-950 px-3 py-2 text-sm text-slate-100 outline-none transition",
+                                                    "w-full rounded-xl border bg-slate-950 px-3 py-2 text-sm text-slate-100 outline-none transition",
                                                     rowErrors.startNumber
                                                         ? "border-rose-500/50 focus:border-rose-500"
                                                         : "border-slate-800 focus:border-fuchsia-500/40",
                                                 ].join(" ")}
                                             />
                                             {rowErrors.startNumber ? (
-                                                <p className="mt-2 text-xs text-rose-400">
-                                                    {rowErrors.startNumber}
-                                                </p>
+                                                <p className="text-xs text-rose-400">{rowErrors.startNumber}</p>
                                             ) : null}
-                                        </td>
+                                        </div>
 
-                                        <td className="px-6 py-5 align-top">
+                                        <div className="space-y-2">
+                                            <label className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
+                                                Padding
+                                            </label>
                                             <select
                                                 value={range.padding}
                                                 onChange={(e) =>
                                                     updateRange(index, "padding", Number(e.target.value))
                                                 }
                                                 className={[
-                                                    "w-24 rounded-xl border bg-slate-950 px-3 py-2 text-sm text-slate-100 outline-none transition",
+                                                    "w-full rounded-xl border bg-slate-950 px-3 py-2 text-sm text-slate-100 outline-none transition",
                                                     rowErrors.padding
                                                         ? "border-rose-500/50 focus:border-rose-500"
                                                         : "border-slate-800 focus:border-fuchsia-500/40",
@@ -336,33 +456,25 @@ export function NumberRangesForm() {
                                                 <option value={8}>8</option>
                                             </select>
                                             {rowErrors.padding ? (
-                                                <p className="mt-2 text-xs text-rose-400">
-                                                    {rowErrors.padding}
-                                                </p>
+                                                <p className="text-xs text-rose-400">{rowErrors.padding}</p>
                                             ) : null}
-                                        </td>
+                                        </div>
 
-                                        <td className="px-6 py-5 text-center">
-                                            <input
-                                                type="checkbox"
-                                                checked={range.autoIncrement}
-                                                onChange={(e) =>
-                                                    updateRange(index, "autoIncrement", e.target.checked)
-                                                }
-                                                className="mt-1 h-5 w-5 rounded border-slate-700 bg-slate-900 text-fuchsia-500 focus:ring-fuchsia-500"
-                                            />
-                                        </td>
-
-                                        <td className="px-6 py-5">
-                                            <code className="rounded-xl bg-slate-950 px-3 py-2 text-xs font-bold text-fuchsia-300">
-                                                {preview}
-                                            </code>
-                                        </td>
-                                    </tr>
-                                );
-                            })}
-                        </tbody>
-                    </table>
+                                        <div className="space-y-2">
+                                            <label className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
+                                                Preview
+                                            </label>
+                                            <div className="rounded-xl bg-slate-900 px-3 py-2">
+                                                <code className="text-xs font-bold text-fuchsia-300">
+                                                    {preview}
+                                                </code>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            );
+                        })}
+                    </div>
                 </div>
 
                 {errors.ranges ? (
@@ -425,7 +537,7 @@ export function NumberRangesForm() {
                     className="inline-flex items-center gap-2 rounded-xl bg-fuchsia-500 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-fuchsia-400"
                 >
                     Continuar
-                    <FaArrowRight size={18}/>
+                    <FaArrowRight size={18} />
                 </button>
             </div>
         </div>

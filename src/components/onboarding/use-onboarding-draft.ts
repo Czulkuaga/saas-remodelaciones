@@ -41,19 +41,19 @@ export type OnboardingDraft = {
         timeZone: string;
     };
     businessPartner: {
-        legalName: string;
-        tradeName: string;
-        identifierType: string;
-        identifierValue: string;
-        mainContactName: string;
-        email: string;
-        phone: string;
-        locationRelationType:
-        | "REGISTERED_OFFICE"
-        | "TRADING_FACILITY"
-        | "MAILING_ADDRESS";
-        roleKey: string;
-    };
+        personType: "ORGANIZATION" | "INDIVIDUAL",
+        legalName: string,
+        tradeName: string,
+        firstName: string,
+        lastName: string,
+        identifierType: string,
+        identifierValue: string,
+        mainContactName: string,
+        email: string,
+        phone: string,
+        locationRelationType: "REGISTERED_OFFICE" | "TRADING_FACILITY" | "MAILING_ADDRESS",
+        roleKey: string,
+    },
     adminUser: {
         firstName: string;
         lastName: string;
@@ -127,8 +127,11 @@ const DEFAULT_DRAFT: OnboardingDraft = {
         timeZone: "America/Bogota",
     },
     businessPartner: {
+        personType: "ORGANIZATION",
         legalName: "",
         tradeName: "",
+        firstName: "",
+        lastName: "",
         identifierType: "NIT",
         identifierValue: "",
         mainContactName: "",

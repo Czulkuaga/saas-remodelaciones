@@ -217,7 +217,7 @@ export function ReviewForm() {
                             </dl>
                         </div>
 
-                        <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+                        <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-1 2xl:grid-cols-2">
                             <div className="rounded-2xl border border-slate-800 bg-slate-950/70 p-5">
                                 <div className="mb-4 flex items-center justify-between">
                                     <div className="flex items-center gap-3">
@@ -275,7 +275,7 @@ export function ReviewForm() {
                         </div>
 
                         <div className="rounded-2xl border border-slate-800 bg-slate-950/70 p-5">
-                            <div className="mb-4 flex items-center justify-between">
+                            <div className="mb-4 flex flex-col items-center justify-between md:flex-row lg:flex-col 2xl:flex-row">
                                 <div className="flex items-center gap-3">
                                     <GoLocation className="text-lg text-fuchsia-300" />
                                     <h3 className="text-base font-semibold text-slate-100">
@@ -283,7 +283,7 @@ export function ReviewForm() {
                                     </h3>
                                 </div>
 
-                                <div className="flex gap-3">
+                                <div className="flex gap-3 ">
                                     <button
                                         type="button"
                                         onClick={() => router.push("/onboarding/structure")}
@@ -338,7 +338,7 @@ export function ReviewForm() {
                         </div>
 
                         <div className="rounded-2xl border border-slate-800 bg-slate-950/70 p-5">
-                            <div className="mb-4 flex items-center justify-between">
+                            <div className="mb-4 flex flex-col items-center justify-between md:flex-row lg:flex-col 2xl:flex-row">
                                 <div className="flex items-center gap-3">
                                     <GoShieldCheck className="text-lg text-fuchsia-300" />
                                     <h3 className="text-base font-semibold text-slate-100">

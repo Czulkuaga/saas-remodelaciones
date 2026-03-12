@@ -21,7 +21,7 @@ export const structureSchema = z.object({
     addressLine1: z
         .string()
         .trim()
-        .min(5, "La dirección debe tener al menos 5 caracteres.")
+        .min(10, "La dirección debe tener al menos 10 caracteres.")
         .max(200, "La dirección no puede superar 200 caracteres."),
 
     city: z

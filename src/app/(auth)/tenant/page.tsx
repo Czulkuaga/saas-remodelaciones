@@ -2,6 +2,7 @@ import { MdDomain } from "react-icons/md";
 import { SiAdguard } from "react-icons/si";
 import { IoLockClosed } from "react-icons/io5";
 import { FormTenant } from "@/components";
+import Link from "next/link";
 
 export default function page() {
     return (
@@ -71,7 +72,9 @@ export default function page() {
 
                 {/* Small footer */}
                 <div className="mt-6 text-center text-[11px] text-slate-500 dark:text-slate-500">
-                    Si no tienes tu organización, solicita el acceso a tu administrador.
+                    {`Si no tienes tu organización, creala ahora`+" "}
+                    <Link href={"/onboarding/organization"} className="hover:text-slate-400">aqui</Link>
+                    .
                 </div>
             </div>
         </section>

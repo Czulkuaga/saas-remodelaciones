@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
     GoCheckCircle,
@@ -32,13 +32,84 @@ const MEMBERSHIP_ROLE_OPTIONS = [
     { value: "OWNER", label: "Owner" },
 ];
 
-function getPasswordStrength(password: string) {
-    let score = 0;
-    if (password.length >= 8) score += 1;
-    if (/[A-Z]/.test(password)) score += 1;
-    if (/[0-9]/.test(password)) score += 1;
-    if (/[^A-Za-z0-9]/.test(password)) score += 1;
-    return score;
+type PasswordStrengthResult = {
+    score: number; // 0 - 4
+    label: "Muy débil" | "Débil" | "Media" | "Buena" | "Fuerte";
+    percent: number; // 0 - 100
+    checks: {
+        minLength: boolean;
+        hasLower: boolean;
+        hasUpper: boolean;
+        hasNumber: boolean;
+        hasSymbol: boolean;
+        longEnough: boolean;
+    };
+};
+
+function evaluatePasswordStrength(password: string): PasswordStrengthResult {
+    const value = password ?? "";
+
+    const checks = {
+        minLength: value.length >= 8,
+        hasLower: /[a-z]/.test(value),
+        hasUpper: /[A-Z]/.test(value),
+        hasNumber: /\d/.test(value),
+        hasSymbol: /[^A-Za-z0-9]/.test(value),
+        longEnough: value.length >= 12,
+    };
+
+    let rawScore = 0;
+
+    if (checks.minLength) rawScore += 1;
+    if (checks.hasLower) rawScore += 1;
+    if (checks.hasUpper) rawScore += 1;
+    if (checks.hasNumber) rawScore += 1;
+    if (checks.hasSymbol) rawScore += 1;
+    if (checks.longEnough) rawScore += 1;
+
+    const typeCount = [
+        checks.hasLower,
+        checks.hasUpper,
+        checks.hasNumber,
+        checks.hasSymbol,
+    ].filter(Boolean).length;
+
+    if (typeCount >= 3) rawScore += 1;
+    if (typeCount === 4) rawScore += 1;
+
+    // Penalizaciones
+    if (value.length > 0 && value.length < 8) rawScore -= 2;
+    if (/^(.)\1+$/.test(value)) rawScore -= 2; // mismo caracter repetido
+    if (/1234|abcd|qwerty|password|admin|empresa/i.test(value)) rawScore -= 2;
+
+    const normalized = Math.max(0, Math.min(rawScore, 8));
+
+    let score: number;
+    let label: PasswordStrengthResult["label"];
+
+    if (normalized <= 1) {
+        score = 0;
+        label = "Muy débil";
+    } else if (normalized <= 3) {
+        score = 1;
+        label = "Débil";
+    } else if (normalized <= 5) {
+        score = 2;
+        label = "Media";
+    } else if (normalized <= 6) {
+        score = 3;
+        label = "Buena";
+    } else {
+        score = 4;
+        label = "Fuerte";
+    }
+
+    return {
+        score,
+        label,
+        percent: [10, 30, 55, 78, 100][score],
+        checks,
+    };
 }
 
 export function AdminUserForm() {
@@ -51,16 +122,79 @@ export function AdminUserForm() {
         () => ({
             firstName: draft.adminUser.firstName,
             lastName: draft.adminUser.lastName,
-            email: draft.adminUser.email || draft.businessPartner.email,
-            phone: draft.adminUser.phone || draft.businessPartner.phone,
-            preferredLanguage:
-                draft.adminUser.preferredLanguage || draft.regional.systemLanguage,
+            email: draft.adminUser.email,
+            phone: draft.adminUser.phone,
+            preferredLanguage: draft.adminUser.preferredLanguage,
             setupPasswordNow: draft.adminUser.setupPasswordNow,
             password: draft.adminUser.password,
             membershipRoleKey: draft.adminUser.membershipRoleKey,
         }),
         [draft.adminUser, draft.businessPartner.email, draft.businessPartner.phone, draft.regional.systemLanguage]
     );
+
+    useEffect(() => {
+        if (!hydrated) return;
+
+        updateDraft((prev) => {
+            const bp = prev.businessPartner;
+            const admin = prev.adminUser;
+
+            let suggestedFirstName = admin.firstName;
+            let suggestedLastName = admin.lastName;
+
+            if (!admin.firstName.trim() || !admin.lastName.trim()) {
+                if (bp.personType === "INDIVIDUAL") {
+                    suggestedFirstName = admin.firstName.trim()
+                        ? admin.firstName
+                        : bp.firstName ?? "";
+
+                    suggestedLastName = admin.lastName.trim()
+                        ? admin.lastName
+                        : bp.lastName ?? "";
+                } else {
+                    const fullName = (bp.mainContactName ?? "").trim();
+                    if (fullName) {
+                        const parts = fullName.split(/\s+/).filter(Boolean);
+
+                        if (!admin.firstName.trim() && parts.length > 0) {
+                            suggestedFirstName = parts[0] ?? "";
+                        }
+
+                        if (!admin.lastName.trim() && parts.length > 1) {
+                            suggestedLastName = parts.slice(1).join(" ");
+                        }
+                    }
+                }
+            }
+
+            const nextEmail = admin.email.trim() ? admin.email : bp.email ?? "";
+            const nextPhone = admin.phone.trim() ? admin.phone : bp.phone ?? "";
+            const nextLanguage = admin.preferredLanguage.trim()
+                ? admin.preferredLanguage
+                : prev.regional.systemLanguage ?? "es-CO";
+
+            const nothingChanged =
+                suggestedFirstName === admin.firstName &&
+                suggestedLastName === admin.lastName &&
+                nextEmail === admin.email &&
+                nextPhone === admin.phone &&
+                nextLanguage === admin.preferredLanguage;
+
+            if (nothingChanged) return prev;
+
+            return {
+                ...prev,
+                adminUser: {
+                    ...prev.adminUser,
+                    firstName: suggestedFirstName,
+                    lastName: suggestedLastName,
+                    email: nextEmail,
+                    phone: nextPhone,
+                    preferredLanguage: nextLanguage,
+                },
+            };
+        });
+    }, [hydrated, updateDraft]);
 
     if (!hydrated) {
         return (
@@ -145,15 +279,7 @@ export function AdminUserForm() {
                 : "border-slate-800 focus:border-fuchsia-500/40",
         ].join(" ");
 
-    const passwordStrength = getPasswordStrength(values.password);
-    const strengthLabel =
-        passwordStrength <= 1
-            ? "Débil"
-            : passwordStrength === 2
-                ? "Media"
-                : passwordStrength === 3
-                    ? "Buena"
-                    : "Fuerte";
+    const passwordStrength = evaluatePasswordStrength(values.password);
 
     return (
         <div className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1fr)_320px]">
@@ -348,6 +474,27 @@ export function AdminUserForm() {
                             </button>
                         </div>
 
+                        <div className="grid grid-cols-2 gap-2 text-xs text-slate-400">
+                            <p className={passwordStrength.checks.minLength ? "text-emerald-400" : ""}>
+                                8+ caracteres
+                            </p>
+                            <p className={passwordStrength.checks.hasUpper ? "text-emerald-400" : ""}>
+                                Mayúscula
+                            </p>
+                            <p className={passwordStrength.checks.hasLower ? "text-emerald-400" : ""}>
+                                Minúscula
+                            </p>
+                            <p className={passwordStrength.checks.hasNumber ? "text-emerald-400" : ""}>
+                                Número
+                            </p>
+                            <p className={passwordStrength.checks.hasSymbol ? "text-emerald-400" : ""}>
+                                Símbolo
+                            </p>
+                            <p className={passwordStrength.checks.longEnough ? "text-emerald-400" : ""}>
+                                12+ recomendado
+                            </p>
+                        </div>
+
                         {errors.password ? (
                             <p className="text-xs text-rose-400">{errors.password}</p>
                         ) : null}
@@ -357,11 +504,11 @@ export function AdminUserForm() {
                                 <div className="h-1.5 flex-1 rounded-full bg-slate-800">
                                     <div
                                         className="h-full rounded-full bg-emerald-500 transition-all"
-                                        style={{ width: `${(passwordStrength / 4) * 100}%` }}
+                                        style={{ width: `${passwordStrength.percent}%` }}
                                     />
                                 </div>
                                 <span className="text-[11px] font-semibold uppercase tracking-[0.16em] text-emerald-400">
-                                    {strengthLabel}
+                                    {passwordStrength.label}
                                 </span>
                             </div>
                         ) : (
@@ -389,7 +536,7 @@ export function AdminUserForm() {
                         className="inline-flex items-center gap-2 rounded-xl bg-fuchsia-500 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-fuchsia-400 cursor-pointer"
                     >
                         Continuar
-                        <FaArrowRight size={18}/>
+                        <FaArrowRight size={18} />
                     </button>
                 </div>
             </div>

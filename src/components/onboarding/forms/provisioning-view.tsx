@@ -3,16 +3,11 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
-    GoCheckCircle,
     GoDatabase,
-    GoGear,
     GoInfo,
-    GoLock,
-    GoNumber,
     GoOrganization,
     GoShieldCheck,
     GoSync,
-    GoTools,
     GoZap,
 } from "react-icons/go";
 import { useOnboardingDraft } from "@/components/onboarding/use-onboarding-draft";
@@ -113,7 +108,8 @@ export function ProvisioningView() {
 
         if (activeIndex >= logs.length) {
             const finalTimer = window.setTimeout(() => {
-                router.push("/onboarding/success");
+                // router.push("/onboarding/success");
+                return
             }, 1400);
 
             return () => window.clearTimeout(finalTimer);

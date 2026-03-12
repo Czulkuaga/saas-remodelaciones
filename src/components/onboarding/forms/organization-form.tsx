@@ -26,6 +26,7 @@ export function OrganizationForm() {
     const router = useRouter();
     const { draft, hydrated, updateDraft } = useOnboardingDraft();
     const [errors, setErrors] = useState<FormErrors>({});
+    const [slugTouched, setSlugTouched] = useState(false);
 
     const values = useMemo<OrganizationFormValues>(
         () => ({
@@ -168,11 +169,23 @@ export function OrganizationForm() {
                             value={values.displayName}
                             onChange={(e) => {
                                 const displayName = e.target.value;
-                                setField("displayName", displayName);
 
-                                if (!values.slug.trim()) {
-                                    setField("slug", slugify(displayName));
-                                }
+                                updateDraft((prev) => ({
+                                    ...prev,
+                                    organization: {
+                                        ...prev.organization,
+                                        displayName,
+                                        slug: slugTouched
+                                            ? prev.organization.slug
+                                            : slugify(displayName),
+                                    },
+                                }));
+
+                                setErrors((prev) => ({
+                                    ...prev,
+                                    displayName: undefined,
+                                    slug: slugTouched ? prev.slug : undefined,
+                                }));
                             }}
                             onBlur={(e) => validateField("displayName", e.target.value)}
                             placeholder="Ej. Esmeralda Remodeling"
@@ -319,7 +332,7 @@ export function OrganizationForm() {
 
             <section className="rounded-2xl border border-fuchsia-500/15 bg-fuchsia-500/5 p-5">
                 <div className="flex items-start gap-3">
-                    <MdOutlineVerifiedUser size={45} className="text-fuchsia-300"/>
+                    <MdOutlineVerifiedUser size={45} className="text-fuchsia-300" />
                     <div>
                         <p className="text-sm font-semibold text-slate-100">
                             Confirmación de registro

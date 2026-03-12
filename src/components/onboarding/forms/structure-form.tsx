@@ -6,7 +6,7 @@ import {
     GoCheckCircle,
     GoLocation,
     GoOrganization,
-    GoInfo,
+    // GoInfo,
 } from "react-icons/go";
 import {
     structureSchema,

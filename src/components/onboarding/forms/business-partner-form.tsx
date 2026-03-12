@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
     GoBriefcase,
@@ -9,6 +9,7 @@ import {
     GoLaw,
     GoLocation,
     GoMail,
+    GoOrganization,
     GoPerson,
     GoShieldCheck,
 } from "react-icons/go";
@@ -25,7 +26,7 @@ const LOCATION_RELATION_OPTIONS = [
     {
         value: "REGISTERED_OFFICE",
         title: "Oficina registrada",
-        description: "Dirección legal o principal de la organización.",
+        description: "Dirección legal o principal de la entidad.",
     },
     {
         value: "TRADING_FACILITY",
@@ -45,6 +46,19 @@ const ROLE_OPTIONS = [
     { value: "VENDOR", label: "Proveedor" },
 ];
 
+const PERSON_TYPES = [
+    {
+        value: "ORGANIZATION",
+        title: "Organización",
+        description: "Empresa, sociedad, entidad jurídica o razón social.",
+    },
+    {
+        value: "INDIVIDUAL",
+        title: "Persona natural",
+        description: "Persona individual con documento e identificación propia.",
+    },
+] as const;
+
 export function BusinessPartnerForm() {
     const router = useRouter();
     const { draft, hydrated, updateDraft } = useOnboardingDraft();
@@ -52,18 +66,49 @@ export function BusinessPartnerForm() {
 
     const values = useMemo<BusinessPartnerFormValues>(
         () => ({
-            legalName: draft.businessPartner.legalName,
-            tradeName: draft.businessPartner.tradeName,
-            identifierType: draft.businessPartner.identifierType,
-            identifierValue: draft.businessPartner.identifierValue,
-            mainContactName: draft.businessPartner.mainContactName,
-            email: draft.businessPartner.email,
-            phone: draft.businessPartner.phone,
-            locationRelationType: draft.businessPartner.locationRelationType,
-            roleKey: draft.businessPartner.roleKey,
+            personType: draft.businessPartner.personType ?? "ORGANIZATION",
+            legalName: draft.businessPartner.legalName ?? "",
+            tradeName: draft.businessPartner.tradeName ?? "",
+            firstName: draft.businessPartner.firstName ?? "",
+            lastName: draft.businessPartner.lastName ?? "",
+            identifierType: draft.businessPartner.identifierType ?? "NIT",
+            identifierValue: draft.businessPartner.identifierValue ?? "",
+            mainContactName: draft.businessPartner.mainContactName ?? "",
+            email: draft.businessPartner.email ?? "",
+            phone: draft.businessPartner.phone ?? "",
+            locationRelationType:
+                draft.businessPartner.locationRelationType ?? "REGISTERED_OFFICE",
+            roleKey: draft.businessPartner.roleKey ?? "TENANT_OWNER",
         }),
         [draft.businessPartner]
     );
+
+    useEffect(() => {
+        if (!hydrated) return;
+
+        updateDraft((prev) => {
+            if (prev.businessPartner.personType !== "INDIVIDUAL") return prev;
+
+            const fullName = [
+                prev.businessPartner.firstName ?? "",
+                prev.businessPartner.lastName ?? "",
+            ]
+                .filter(Boolean)
+                .join(" ")
+                .trim();
+
+            if (!fullName) return prev;
+            if (prev.businessPartner.mainContactName === fullName) return prev;
+
+            return {
+                ...prev,
+                businessPartner: {
+                    ...prev.businessPartner,
+                    mainContactName: fullName,
+                },
+            };
+        });
+    }, [hydrated, updateDraft]);
 
     if (!hydrated) {
         return (
@@ -95,11 +140,22 @@ export function BusinessPartnerForm() {
         field: K,
         value: BusinessPartnerFormValues[K]
     ) {
-        const result = businessPartnerSchema.shape[field].safeParse(value);
+        const candidate = { ...values, [field]: value };
+        const result = businessPartnerSchema.safeParse(candidate);
+
+        if (result.success) {
+            setErrors((prev) => ({
+                ...prev,
+                [field]: undefined,
+            }));
+            return;
+        }
+
+        const issue = result.error.issues.find((x) => x.path[0] === field);
 
         setErrors((prev) => ({
             ...prev,
-            [field]: result.success ? undefined : result.error.issues[0]?.message,
+            [field]: issue?.message,
         }));
     }
 
@@ -129,6 +185,38 @@ export function BusinessPartnerForm() {
         router.push("/onboarding/admin-user");
     }
 
+    function handlePersonTypeChange(nextType: "ORGANIZATION" | "INDIVIDUAL") {
+        updateDraft((prev) => ({
+            ...prev,
+            businessPartner: {
+                ...prev.businessPartner,
+                personType: nextType,
+                legalName:
+                    nextType === "ORGANIZATION"
+                        ? prev.businessPartner.legalName
+                        : prev.businessPartner.legalName,
+                tradeName:
+                    nextType === "ORGANIZATION" ? prev.businessPartner.tradeName : "",
+                firstName:
+                    nextType === "INDIVIDUAL" ? prev.businessPartner.firstName : "",
+                lastName:
+                    nextType === "INDIVIDUAL" ? prev.businessPartner.lastName : "",
+                mainContactName:
+                    nextType === "ORGANIZATION"
+                        ? prev.businessPartner.mainContactName
+                        : [
+                            prev.businessPartner.firstName ?? "",
+                            prev.businessPartner.lastName ?? "",
+                        ]
+                            .filter(Boolean)
+                            .join(" ")
+                            .trim(),
+            },
+        }));
+
+        setErrors({});
+    }
+
     const inputClass = (hasError?: string) =>
         [
             "w-full rounded-xl border bg-slate-950 px-4 py-3 text-sm text-slate-100 outline-none transition placeholder:text-slate-500",
@@ -146,9 +234,71 @@ export function BusinessPartnerForm() {
         .filter(Boolean)
         .join(", ");
 
+    const summaryName =
+        values.personType === "INDIVIDUAL"
+            ? [values.firstName ?? "", values.lastName ?? ""].filter(Boolean).join(" ")
+            : values.legalName ?? "";
+
     return (
         <div className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1fr)_320px]">
             <div className="space-y-6">
+                <section className="rounded-2xl border border-slate-800 bg-slate-900/40 p-6">
+                    <div className="mb-6">
+                        <h2 className="text-lg font-semibold text-slate-100">
+                            Tipo de business partner
+                        </h2>
+                        <p className="mt-1 text-sm text-slate-400">
+                            Define si el partner principal será una organización o una persona natural.
+                        </p>
+                    </div>
+
+                    <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                        {PERSON_TYPES.map((item) => {
+                            const active = values.personType === item.value;
+
+                            return (
+                                <button
+                                    key={item.value}
+                                    type="button"
+                                    onClick={() => handlePersonTypeChange(item.value)}
+                                    className={[
+                                        "rounded-2xl border p-5 text-left transition",
+                                        active
+                                            ? "border-fuchsia-500/30 bg-fuchsia-500/10"
+                                            : "border-slate-800 bg-slate-950/70 hover:border-slate-700",
+                                    ].join(" ")}
+                                >
+                                    <div className="mb-3 flex items-center gap-3">
+                                        <div className="rounded-2xl bg-fuchsia-500/15 p-3 text-fuchsia-300">
+                                            {item.value === "ORGANIZATION" ? (
+                                                <GoOrganization className="text-lg" />
+                                            ) : (
+                                                <GoPerson className="text-lg" />
+                                            )}
+                                        </div>
+                                        <p
+                                            className={[
+                                                "text-sm font-semibold",
+                                                active ? "text-fuchsia-300" : "text-slate-100",
+                                            ].join(" ")}
+                                        >
+                                            {item.title}
+                                        </p>
+                                    </div>
+
+                                    <p className="text-sm leading-6 text-slate-400">
+                                        {item.description}
+                                    </p>
+                                </button>
+                            );
+                        })}
+                    </div>
+
+                    {errors.personType ? (
+                        <p className="mt-3 text-xs text-rose-400">{errors.personType}</p>
+                    ) : null}
+                </section>
+
                 <section className="rounded-2xl border border-slate-800 bg-slate-900/40 p-6">
                     <div className="mb-6 flex items-center gap-3">
                         <div className="rounded-2xl bg-fuchsia-500/15 p-3 text-fuchsia-300">
@@ -156,110 +306,187 @@ export function BusinessPartnerForm() {
                         </div>
                         <div>
                             <h2 className="text-lg font-semibold text-slate-100">
-                                Identidad legal
+                                Identidad principal
                             </h2>
                             <p className="mt-1 text-sm text-slate-400">
-                                Define la entidad jurídica principal asociada al tenant.
+                                Define la identidad legal del business partner principal.
                             </p>
                         </div>
                     </div>
 
-                    <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
-                        <div className="space-y-2 md:col-span-2">
+                    {values.personType === "ORGANIZATION" ? (
+                        <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
+                            <div className="space-y-2 md:col-span-2">
+                                <label className="text-sm font-medium text-slate-300">
+                                    Razón social
+                                </label>
+                                <input
+                                    value={values.legalName ?? ""}
+                                    onChange={(e) => setField("legalName", e.target.value)}
+                                    onBlur={(e) => validateField("legalName", e.target.value)}
+                                    placeholder="Ej. Esmeralda Remodeling SAS"
+                                    className={inputClass(errors.legalName)}
+                                />
+                                {errors.legalName ? (
+                                    <p className="text-xs text-rose-400">{errors.legalName}</p>
+                                ) : null}
+                            </div>
+
+                            <div className="space-y-2 md:col-span-2">
+                                <label className="text-sm font-medium text-slate-300">
+                                    Nombre comercial
+                                </label>
+                                <input
+                                    value={values.tradeName ?? ""}
+                                    onChange={(e) => setField("tradeName", e.target.value)}
+                                    onBlur={(e) => validateField("tradeName", e.target.value)}
+                                    placeholder="Ej. Esmeralda Remodeling"
+                                    className={inputClass(errors.tradeName)}
+                                />
+                                {errors.tradeName ? (
+                                    <p className="text-xs text-rose-400">{errors.tradeName}</p>
+                                ) : (
+                                    <p className="text-xs text-slate-500">
+                                        Opcional si coincide con la razón social.
+                                    </p>
+                                )}
+                            </div>
+
+                            <div className="space-y-2 md:col-span-2">
+                                <label className="text-sm font-medium text-slate-300">
+                                    Contacto principal
+                                </label>
+                                <input
+                                    value={values.mainContactName ?? ""}
+                                    onChange={(e) => setField("mainContactName", e.target.value)}
+                                    onBlur={(e) =>
+                                        validateField("mainContactName", e.target.value)
+                                    }
+                                    placeholder="Ej. César Zuluaga"
+                                    className={inputClass(errors.mainContactName)}
+                                />
+                                {errors.mainContactName ? (
+                                    <p className="text-xs text-rose-400">
+                                        {errors.mainContactName}
+                                    </p>
+                                ) : null}
+                            </div>
+                        </div>
+                    ) : (
+                        <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
+                            <div className="space-y-2">
+                                <label className="text-sm font-medium text-slate-300">
+                                    Nombres
+                                </label>
+                                <input
+                                    value={values.firstName ?? ""}
+                                    onChange={(e) => setField("firstName", e.target.value)}
+                                    onBlur={(e) => validateField("firstName", e.target.value)}
+                                    placeholder="Ej. César"
+                                    className={inputClass(errors.firstName)}
+                                />
+                                {errors.firstName ? (
+                                    <p className="text-xs text-rose-400">{errors.firstName}</p>
+                                ) : null}
+                            </div>
+
+                            <div className="space-y-2">
+                                <label className="text-sm font-medium text-slate-300">
+                                    Apellidos
+                                </label>
+                                <input
+                                    value={values.lastName ?? ""}
+                                    onChange={(e) => setField("lastName", e.target.value)}
+                                    onBlur={(e) => validateField("lastName", e.target.value)}
+                                    placeholder="Ej. Zuluaga"
+                                    className={inputClass(errors.lastName)}
+                                />
+                                {errors.lastName ? (
+                                    <p className="text-xs text-rose-400">{errors.lastName}</p>
+                                ) : null}
+                            </div>
+
+                            <div className="space-y-2 md:col-span-2">
+                                <label className="text-sm font-medium text-slate-300">
+                                    Nombre completo
+                                </label>
+                                <input
+                                    value={values.mainContactName ?? ""}
+                                    readOnly
+                                    className="w-full rounded-xl border border-slate-800 bg-slate-900 px-4 py-3 text-sm text-slate-400 outline-none cursor-not-allowed"
+                                />
+                                <p className="text-xs text-slate-500">
+                                    Se construye automáticamente a partir de nombres y apellidos.
+                                </p>
+                            </div>
+                        </div>
+                    )}
+
+                    <div className="mt-5 grid grid-cols-[140px_minmax(0,1fr)] gap-4">
+                        <div className="space-y-2">
                             <label className="text-sm font-medium text-slate-300">
-                                Razón social
+                                Tipo ID
                             </label>
-                            <input
-                                value={values.legalName}
-                                onChange={(e) => setField("legalName", e.target.value)}
-                                onBlur={(e) => validateField("legalName", e.target.value)}
-                                placeholder="Ej. Esmeralda Remodeling SAS"
-                                className={inputClass(errors.legalName)}
-                            />
-                            {errors.legalName ? (
-                                <p className="text-xs text-rose-400">{errors.legalName}</p>
+                            <select
+                                value={values.identifierType}
+                                onChange={(e) => setField("identifierType", e.target.value)}
+                                onBlur={(e) => validateField("identifierType", e.target.value)}
+                                className={inputClass(errors.identifierType)}
+                            >
+                                <option value="NIT">NIT</option>
+                                <option value="VAT">VAT</option>
+                                <option value="EIN">EIN</option>
+                                <option value="TIN">TIN</option>
+                                <option value="REGISTRATION">Registro mercantil</option>
+                                <option value="CC">Cédula</option>
+                                <option value="CE">Cédula extranjería</option>
+                                <option value="PASSPORT">Pasaporte</option>
+                            </select>
+                            {errors.identifierType ? (
+                                <p className="text-xs text-rose-400">{errors.identifierType}</p>
                             ) : null}
                         </div>
 
                         <div className="space-y-2">
                             <label className="text-sm font-medium text-slate-300">
-                                Nombre comercial
+                                Identificador
                             </label>
                             <input
-                                value={values.tradeName ?? ""}
-                                onChange={(e) => setField("tradeName", e.target.value)}
-                                onBlur={(e) => validateField("tradeName", e.target.value)}
-                                placeholder="Ej. Esmeralda Remodeling"
-                                className={inputClass(errors.tradeName)}
+                                value={values.identifierValue}
+                                onChange={(e) => setField("identifierValue", e.target.value)}
+                                onBlur={(e) => validateField("identifierValue", e.target.value)}
+                                placeholder={
+                                    values.personType === "ORGANIZATION"
+                                        ? "Ej. 900123456-7"
+                                        : "Ej. 1032456789"
+                                }
+                                className={inputClass(errors.identifierValue)}
                             />
-                            {errors.tradeName ? (
-                                <p className="text-xs text-rose-400">{errors.tradeName}</p>
-                            ) : (
-                                <p className="text-xs text-slate-500">
-                                    Opcional si coincide con la razón social.
-                                </p>
-                            )}
-                        </div>
-
-                        <div className="grid grid-cols-[140px_minmax(0,1fr)] gap-4">
-                            <div className="space-y-2">
-                                <label className="text-sm font-medium text-slate-300">
-                                    Tipo ID
-                                </label>
-                                <select
-                                    value={values.identifierType}
-                                    onChange={(e) => setField("identifierType", e.target.value)}
-                                    onBlur={(e) => validateField("identifierType", e.target.value)}
-                                    className={inputClass(errors.identifierType)}
-                                >
-                                    <option value="NIT">NIT</option>
-                                    <option value="VAT">VAT</option>
-                                    <option value="EIN">EIN</option>
-                                    <option value="TIN">TIN</option>
-                                    <option value="REGISTRATION">Registro mercantil</option>
-                                </select>
-                                {errors.identifierType ? (
-                                    <p className="text-xs text-rose-400">{errors.identifierType}</p>
-                                ) : null}
-                            </div>
-
-                            <div className="space-y-2">
-                                <label className="text-sm font-medium text-slate-300">
-                                    Identificador
-                                </label>
-                                <input
-                                    value={values.identifierValue}
-                                    onChange={(e) => setField("identifierValue", e.target.value)}
-                                    onBlur={(e) => validateField("identifierValue", e.target.value)}
-                                    placeholder="Ej. 900123456-7"
-                                    className={inputClass(errors.identifierValue)}
-                                />
-                                {errors.identifierValue ? (
-                                    <p className="text-xs text-rose-400">{errors.identifierValue}</p>
-                                ) : null}
-                            </div>
-                        </div>
-
-                        <div className="space-y-2 md:col-span-2">
-                            <label className="text-sm font-medium text-slate-300">
-                                Rol principal del business partner
-                            </label>
-                            <select
-                                value={values.roleKey}
-                                onChange={(e) => setField("roleKey", e.target.value)}
-                                onBlur={(e) => validateField("roleKey", e.target.value)}
-                                className={inputClass(errors.roleKey)}
-                            >
-                                {ROLE_OPTIONS.map((role) => (
-                                    <option key={role.value} value={role.value}>
-                                        {role.label}
-                                    </option>
-                                ))}
-                            </select>
-                            {errors.roleKey ? (
-                                <p className="text-xs text-rose-400">{errors.roleKey}</p>
+                            {errors.identifierValue ? (
+                                <p className="text-xs text-rose-400">{errors.identifierValue}</p>
                             ) : null}
                         </div>
+                    </div>
+
+                    <div className="mt-5 space-y-2">
+                        <label className="text-sm font-medium text-slate-300">
+                            Rol principal del business partner
+                        </label>
+                        <select
+                            value={values.roleKey}
+                            onChange={(e) => setField("roleKey", e.target.value)}
+                            onBlur={(e) => validateField("roleKey", e.target.value)}
+                            className={inputClass(errors.roleKey)}
+                        >
+                            {ROLE_OPTIONS.map((role) => (
+                                <option key={role.value} value={role.value}>
+                                    {role.label}
+                                </option>
+                            ))}
+                        </select>
+                        {errors.roleKey ? (
+                            <p className="text-xs text-rose-400">{errors.roleKey}</p>
+                        ) : null}
                     </div>
                 </section>
 
@@ -270,34 +497,15 @@ export function BusinessPartnerForm() {
                         </div>
                         <div>
                             <h2 className="text-lg font-semibold text-slate-100">
-                                Datos de contacto principal
+                                Datos de contacto
                             </h2>
                             <p className="mt-1 text-sm text-slate-400">
-                                Persona o canal principal de contacto para esta entidad.
+                                Información principal para comunicación y relación operativa.
                             </p>
                         </div>
                     </div>
 
                     <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
-                        <div className="space-y-2 md:col-span-2">
-                            <label className="text-sm font-medium text-slate-300">
-                                Nombre del contacto principal
-                            </label>
-                            <div className="relative">
-                                <GoPerson className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" />
-                                <input
-                                    value={values.mainContactName}
-                                    onChange={(e) => setField("mainContactName", e.target.value)}
-                                    onBlur={(e) => validateField("mainContactName", e.target.value)}
-                                    placeholder="Ej. César Zuluaga"
-                                    className={`${inputClass(errors.mainContactName)} pl-11`}
-                                />
-                            </div>
-                            {errors.mainContactName ? (
-                                <p className="text-xs text-rose-400">{errors.mainContactName}</p>
-                            ) : null}
-                        </div>
-
                         <div className="space-y-2">
                             <label className="text-sm font-medium text-slate-300">
                                 Correo electrónico
@@ -320,11 +528,11 @@ export function BusinessPartnerForm() {
                                 Teléfono
                             </label>
                             <input
-                                type="tel"
+                                type="number"
                                 value={values.phone}
                                 onChange={(e) => setField("phone", e.target.value)}
                                 onBlur={(e) => validateField("phone", e.target.value)}
-                                placeholder="+57 300 000 0000"
+                                placeholder="300 000 0000"
                                 className={inputClass(errors.phone)}
                             />
                             {errors.phone ? (
@@ -344,12 +552,12 @@ export function BusinessPartnerForm() {
                                 Relación con la ubicación principal
                             </h2>
                             <p className="mt-1 text-sm text-slate-400">
-                                Vincula este business partner con la ubicación creada en el paso anterior.
+                                Vincula este partner con la ubicación creada en el paso anterior.
                             </p>
                         </div>
                     </div>
 
-                    <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+                    <div className="grid grid-cols-1 gap-4 md:grid-cols-2 2xl:grid-cols-3">
                         {LOCATION_RELATION_OPTIONS.map((option) => {
                             const active = values.locationRelationType === option.value;
 
@@ -357,9 +565,7 @@ export function BusinessPartnerForm() {
                                 <button
                                     key={option.value}
                                     type="button"
-                                    onClick={() =>
-                                        setField("locationRelationType", option.value)
-                                    }
+                                    onClick={() => setField("locationRelationType", option.value)}
                                     className={[
                                         "rounded-2xl border p-4 text-left transition",
                                         active
@@ -409,7 +615,7 @@ export function BusinessPartnerForm() {
                     <button
                         type="button"
                         onClick={() => router.push("/onboarding/structure")}
-                        className="rounded-xl px-4 py-2.5 text-sm font-medium text-slate-400 transition hover:text-slate-200 cursor-pointer"
+                        className="rounded-xl px-4 py-2.5 text-sm font-medium text-slate-400 transition hover:text-slate-200"
                     >
                         Atrás
                     </button>
@@ -417,10 +623,10 @@ export function BusinessPartnerForm() {
                     <button
                         type="button"
                         onClick={handleContinue}
-                        className="inline-flex items-center gap-2 rounded-xl bg-fuchsia-500 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-fuchsia-400 cursor-pointer"
+                        className="inline-flex items-center gap-2 rounded-xl bg-fuchsia-500 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-fuchsia-400"
                     >
                         Continuar
-                        <FaArrowRight />
+                        <FaArrowRight size={18}/>
                     </button>
                 </div>
             </div>
@@ -437,7 +643,9 @@ export function BusinessPartnerForm() {
                                 Tipo de entidad
                             </p>
                             <p className="mt-2 text-sm font-medium italic text-slate-100">
-                                Organization Master Partner
+                                {values.personType === "ORGANIZATION"
+                                    ? "Organization Master Partner"
+                                    : "Individual Master Partner"}
                             </p>
                         </div>
 
@@ -449,9 +657,9 @@ export function BusinessPartnerForm() {
 
                             <dl className="mt-4 space-y-3 text-sm">
                                 <div className="flex items-start justify-between gap-4">
-                                    <dt className="text-slate-500">Razón social</dt>
+                                    <dt className="text-slate-500">Nombre principal</dt>
                                     <dd className="text-right text-slate-200">
-                                        {values.legalName || "-"}
+                                        {summaryName || "-"}
                                     </dd>
                                 </div>
 
