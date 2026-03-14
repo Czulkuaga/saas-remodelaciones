@@ -284,6 +284,38 @@ enum RevenueType {
   OTHER
 }
 
+enum BillingInterval {
+  MONTH
+  YEAR
+  LIFETIME
+}
+
+enum SubscriptionStatus {
+  TRIALING
+  ACTIVE
+  CANCELED
+  EXPIRED
+  PAST_DUE
+}
+
+enum CouponType {
+  PERCENT
+  FIXED
+}
+
+enum CouponDuration {
+  ONCE
+  REPEATING
+  FOREVER
+}
+
+enum ProvisioningStatus {
+  PENDING
+  RUNNING
+  SUCCESS
+  FAILED
+}
+
 // ------------------------------------------------
 // Models
 // ------------------------------------------------
@@ -351,6 +383,7 @@ model Tenant {
   createdAt                 DateTime                   @default(now())
   updatedAt                 DateTime                   @updatedAt
   remodelingProjectPartners RemodelingProjectPartner[]
+  subscriptions             Subscription[]
 
   @@index([defaultCurrencyCode])
 }
@@ -359,9 +392,12 @@ model TenantBranding {
   id       String @id @default(uuid())
   tenantId String @unique
 
-  logoUrl    String?
-  logoName   String?
-  faviconUrl String?
+  brandName    String
+  logoDarkUrl  String?
+  logoLightUrl String?
+  logoIconUrl  String?
+  logoName     String?
+  faviconUrl   String?
 
   primaryColor   String? // para futuro theming
   secondaryColor String?
@@ -514,6 +550,8 @@ model User {
   email           String
   emailNormalized String  @unique
   name            String?
+  firstName       String?
+  lastName        String?
   phone           String?
   phoneNormalized String?
   passwordHash    String
@@ -746,6 +784,29 @@ model AgentIdentity {
   @@index([tenantId, userId])
   @@index([waId])
   @@index([sessionId])
+}
+
+model ProvisioningRequest {
+  id         String             @id @default(uuid())
+  requestKey String             @unique
+  status     ProvisioningStatus @default(PENDING)
+
+  tenantId     String?
+  tenantSlug   String?
+  payloadHash  String?
+  errorCode    String?
+  errorMessage String?
+  resultJson   Json?
+
+  createdByEmail String?
+  startedAt      DateTime?
+  finishedAt     DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status])
+  @@index([tenantSlug])
 }
 
 // ------------------------------------------------
@@ -1620,4 +1681,137 @@ model Country {
   remodelingProjects RemodelingProject[]
 
   @@index([currencyCode])
+}
+
+// ------------------------------------------------
+// Planes / Suscripciones / Precio / Descuentos
+// ------------------------------------------------
+
+model Plan {
+  id String @id @default(uuid())
+
+  code        String  @unique
+  name        String
+  description String?
+
+  isActive Boolean @default(true)
+
+  // límites opcionales
+  maxUsers    Int?
+  maxProjects Int?
+
+  prices Price[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Price {
+  id String @id @default(uuid())
+
+  planId String
+  plan   Plan   @relation(fields: [planId], references: [id], onDelete: Cascade)
+
+  amountCents  Int
+  currencyCode String
+  interval     BillingInterval
+
+  isActive Boolean @default(true)
+
+  subscriptions Subscription[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([planId, currencyCode, interval], name: "planId_currencyCode_interval")
+  @@index([planId])
+}
+
+model Subscription {
+  id String @id @default(uuid())
+
+  tenantId String @unique
+  tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  priceId String
+  price   Price  @relation(fields: [priceId], references: [id])
+
+  status SubscriptionStatus
+
+  startedAt          DateTime
+  trialEndsAt        DateTime?
+  currentPeriodStart DateTime?
+  currentPeriodEnd   DateTime?
+  canceledAt         DateTime?
+
+  // Snapshot de precio
+  priceAmountCentsSnapshot Int
+  currencyCodeSnapshot     String
+  billingIntervalSnapshot  BillingInterval
+
+  // Snapshot de límites
+  maxUsersSnapshot    Int?
+  maxProjectsSnapshot Int?
+
+  // Cupón aplicado, si existe
+  couponId String?
+  coupon   Coupon? @relation(fields: [couponId], references: [id])
+
+  // Integración futura con billing provider
+  billingProvider           String?
+  billingCustomerId         String?
+  billingSubscriptionId     String?
+  billingSubscriptionItemId String?
+
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+  discounts Discount[]
+
+  @@index([priceId])
+  @@index([couponId])
+}
+
+model Coupon {
+  id String @id @default(uuid())
+
+  code String @unique
+
+  type           CouponType
+  percentOff     Int?
+  amountOffCents Int?
+
+  duration       CouponDuration
+  durationMonths Int?
+
+  maxRedemptions Int?
+  redeemedCount  Int  @default(0)
+
+  validFrom  DateTime?
+  validUntil DateTime?
+
+  isActive Boolean @default(true)
+
+  subscriptions Subscription[]
+
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+  discounts Discount[]
+}
+
+model Discount {
+  id String @id @default(uuid())
+
+  subscriptionId String
+  subscription   Subscription @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+
+  couponId String
+  coupon   Coupon @relation(fields: [couponId], references: [id])
+
+  percentOff Int?
+  amountOff  Int?
+
+  startsAt DateTime
+  endsAt   DateTime?
+
+  createdAt DateTime @default(now())
 }

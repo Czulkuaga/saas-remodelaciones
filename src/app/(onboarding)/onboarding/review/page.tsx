@@ -10,7 +10,7 @@ export default function ReviewOnboardingPage() {
             stepDescription="Verifica la configuración completa del tenant antes de ejecutar la creación definitiva del entorno."
             stepNumber={9}
             totalSteps={9}
-            backHref="/onboarding/number-ranges"
+            backHref="/onboarding/subscription"
             nextLabel="Provisionar entorno"
             helpPanel={
                 <div className="space-y-6">

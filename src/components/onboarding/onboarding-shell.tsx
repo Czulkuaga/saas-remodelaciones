@@ -17,6 +17,7 @@ import {
     GoRepo,
     GoChecklist,
 } from "react-icons/go";
+import { MdOutlinePayment } from "react-icons/md";
 
 type OnboardingShellProps = {
     currentStepId: string;
@@ -42,6 +43,7 @@ const stepIconMap: Record<OnboardingStepIconKey, IconType> = {
     shield: GoShieldLock,
     tag: GoTag,
     task_alt: GoChecklist,
+    plans: MdOutlinePayment
 };
 
 export function OnboardingShell({

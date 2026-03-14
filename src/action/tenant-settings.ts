@@ -2,7 +2,7 @@
 
 import { prisma } from "@/lib/prisma";
 import { requireTenantId } from "@/lib/auth/session";
-import type { TenantSettingsDTO } from "@/types/settings/types"; // ajusta
+import type { TenantSettingsDTO } from "@/types/settings/types";
 
 export async function getTenantSettingsAction(): Promise<TenantSettingsDTO> {
     const tenantId = await requireTenantId();
@@ -36,7 +36,13 @@ export async function getTenantSettingsAction(): Promise<TenantSettingsDTO> {
                 },
 
                 tenantBranding: {
-                    select: { logoUrl: true, logoName: true },
+                    select: {
+                        brandName: true,
+                        logoName: true,
+                        logoDarkUrl: true,
+                        logoLightUrl: true,
+                        logoIconUrl: true,
+                    },
                 },
 
                 orgBusinessPartnerId: true,
@@ -46,6 +52,8 @@ export async function getTenantSettingsAction(): Promise<TenantSettingsDTO> {
                         code: true,
                         type: true,
                         organizationName: true,
+                        firstName: true,
+                        lastName: true,
                         email: true,
                         phone: true,
                         isActive: true,
@@ -94,46 +102,49 @@ export async function getTenantSettingsAction(): Promise<TenantSettingsDTO> {
 
         prisma.locale.findMany({
             where: { isActive: true },
+            distinct: ["code"],
             orderBy: [{ name: "asc" }],
             select: { code: true, name: true, isActive: true },
         }),
 
         prisma.timeZone.findMany({
             where: { isActive: true },
+            distinct: ["id"],
             orderBy: [{ label: "asc" }],
             select: { id: true, label: true, isActive: true },
         }),
 
         prisma.currency.findMany({
             where: { isActive: true },
+            distinct: ["code"],
             orderBy: [{ code: "asc" }],
             select: { code: true, name: true, symbol: true, isActive: true },
         }),
 
         prisma.country.findMany({
             where: { isActive: true },
+            distinct: ["code"],
             orderBy: [{ name: "asc" }],
             select: { code: true, name: true, isActive: true },
         }),
     ]);
 
-    if (!tenant) throw new Error("Tenant not found");
+    if (!tenant) {
+        throw new Error("Tenant not found");
+    }
 
-    const org = tenant.orgBusinessPartner && tenant.orgBusinessPartner.type === "ORGANIZATION"
-        ? tenant.orgBusinessPartner
-        : null;
+    const primaryBP = tenant.orgBusinessPartner ?? null;
 
-    const billingLoc = tenant.orgBusinessPartner?.businessPartnerLocations?.[0]?.location ?? null;
+    const billingLoc = primaryBP?.businessPartnerLocations?.[0]?.location ?? null;
 
     return {
-        // tenant core
         id: tenant.id,
         code: tenant.code,
         name: tenant.name,
         slug: tenant.slug,
         status: tenant.status,
-        countryCode: tenant.countryCode,
 
+        countryCode: tenant.countryCode,
         defaultLocaleCode: tenant.defaultLocaleCode,
         defaultTimeZoneId: tenant.defaultTimeZoneId,
         defaultCurrencyCode: tenant.defaultCurrencyCode,
@@ -148,33 +159,35 @@ export async function getTenantSettingsAction(): Promise<TenantSettingsDTO> {
             remodelingProjects: tenant._count.remodelingProjects,
         },
 
-        // catalogs
         locales,
         timeZones,
         currencies,
         countries,
 
-        // branding
-        branding: tenant.tenantBranding
+        branding: {
+            // brandName: tenant.tenantBranding?.brandName ?? tenant.name,
+            logoUrl: tenant.tenantBranding?.logoLightUrl ?? null,
+            logoName: tenant.tenantBranding?.logoName ?? null,
+            logoDarkUrl: tenant.tenantBranding?.logoDarkUrl ?? null,
+            logoLightUrl: tenant.tenantBranding?.logoLightUrl ?? null,
+            logoIconUrl: tenant.tenantBranding?.logoIconUrl ?? null,
+        },
+
+        orgBP: primaryBP
             ? {
-                logoUrl: tenant.tenantBranding.logoUrl ?? null,
-                logoName: tenant.tenantBranding.logoName ?? null,
+                id: primaryBP.id,
+                code: primaryBP.code,
+                type: primaryBP.type,
+                organizationName:
+                    primaryBP.organizationName ??
+                    ([primaryBP.firstName, primaryBP.lastName].filter(Boolean).join(" ") || null),
+                email: primaryBP.email,
+                phone: primaryBP.phone,
+                isActive: primaryBP.isActive,
             }
             : null,
 
-        // org BP
-        orgBP: org
-            ? {
-                id: org.id,
-                code: org.code,
-                organizationName: org.organizationName,
-                email: org.email,
-                phone: org.phone,
-                isActive: org.isActive,
-            }
-            : null,
-
-        orgIdentifiers: org?.identifiers ?? [],
+        orgIdentifiers: primaryBP?.identifiers ?? [],
 
         orgBillingLocation: billingLoc
             ? {

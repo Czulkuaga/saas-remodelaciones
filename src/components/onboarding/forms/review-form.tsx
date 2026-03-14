@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import {
     GoCheckCircle,
     GoGlobe,
-    GoInfo,
+    GoCreditCard,
     GoLocation,
     // GoNumber,
     GoOrganization,
@@ -18,6 +18,13 @@ import { onboardingDraftSchema } from "@/lib/zod/onboarding/onboarding-draft.sch
 import { useOnboardingDraft } from "@/components/onboarding/use-onboarding-draft";
 import { PiArrowCircleUpRightBold } from "react-icons/pi";
 
+function formatMoney(cents: number, currencyCode: string) {
+    return new Intl.NumberFormat("en-US", {
+        style: "currency",
+        currency: currencyCode,
+    }).format(cents / 100);
+}
+
 function findStepPathBySection(section: string) {
     const map: Record<string, string> = {
         organization: "/onboarding/organization",
@@ -28,6 +35,7 @@ function findStepPathBySection(section: string) {
         adminUser: "/onboarding/admin-user",
         roles: "/onboarding/roles",
         numberRanges: "/onboarding/number-ranges",
+        plan: "/onboarding/plan",
     };
 
     return map[section] ?? "/onboarding/organization";
@@ -88,6 +96,12 @@ export function ReviewForm() {
             title: "Numeración inicial válida",
             description: "Rangos de documentos y entidades.",
             ok: !issues.some((x) => x.path[0] === "numberRanges"),
+        },
+        {
+            key: "plan",
+            title: "Plan y suscripción listos",
+            description: "Plan inicial, pricing y beneficios aplicados.",
+            ok: !issues.some((x) => x.path[0] === "plan"),
         },
     ];
 
@@ -392,6 +406,113 @@ export function ReviewForm() {
                                 </div>
                             </div>
                         </div>
+
+                        <div className="rounded-2xl border border-slate-800 bg-slate-950/70 p-5">
+                            <div className="mb-4 flex items-center justify-between">
+                                <div className="flex items-center gap-3">
+                                    <GoCreditCard className="text-lg text-fuchsia-300" />
+                                    <h3 className="text-base font-semibold text-slate-100">
+                                        Plan y suscripción
+                                    </h3>
+                                </div>
+
+                                <button
+                                    type="button"
+                                    onClick={() => router.push("/onboarding/plan")}
+                                    className="text-sm font-medium text-fuchsia-300 transition hover:text-fuchsia-200"
+                                >
+                                    Editar
+                                </button>
+                            </div>
+
+                            <dl className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                                <div>
+                                    <dt className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
+                                        Plan
+                                    </dt>
+                                    <dd className="mt-1 text-sm text-slate-200">
+                                        {draft.plan.planCode}
+                                    </dd>
+                                </div>
+
+                                <div>
+                                    <dt className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
+                                        Billing interval
+                                    </dt>
+                                    <dd className="mt-1 text-sm text-slate-200">
+                                        {draft.plan.subscriptionPreview.billingInterval}
+                                    </dd>
+                                </div>
+
+                                <div>
+                                    <dt className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
+                                        Precio final
+                                    </dt>
+                                    <dd className="mt-1 text-sm text-slate-200">
+                                        {draft.plan.subscriptionPreview.billingInterval === "LIFETIME"
+                                            ? "Custom"
+                                            : formatMoney(
+                                                draft.plan.subscriptionPreview.finalPriceCents,
+                                                draft.plan.subscriptionPreview.currencyCode
+                                            )}
+                                    </dd>
+                                </div>
+
+                                <div>
+                                    <dt className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
+                                        Trial
+                                    </dt>
+                                    <dd className="mt-1 text-sm text-slate-200">
+                                        {draft.plan.subscriptionPreview.trialDays} días
+                                    </dd>
+                                </div>
+
+                                <div>
+                                    <dt className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
+                                        Usuarios máximos
+                                    </dt>
+                                    <dd className="mt-1 text-sm text-slate-200">
+                                        {draft.plan.subscriptionPreview.maxUsers ?? "Ilimitados"}
+                                    </dd>
+                                </div>
+
+                                <div>
+                                    <dt className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
+                                        Proyectos máximos
+                                    </dt>
+                                    <dd className="mt-1 text-sm text-slate-200">
+                                        {draft.plan.subscriptionPreview.maxProjects ?? "Ilimitados"}
+                                    </dd>
+                                </div>
+
+                                <div>
+                                    <dt className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
+                                        Cupón aplicado
+                                    </dt>
+                                    <dd className="mt-1 text-sm text-slate-200">
+                                        {draft.plan.subscriptionPreview.appliedCouponCode || "-"}
+                                    </dd>
+                                </div>
+
+                                <div>
+                                    <dt className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
+                                        Estado cupón
+                                    </dt>
+                                    <dd
+                                        className={[
+                                            "mt-1 text-sm",
+                                            draft.plan.subscriptionPreview.couponStatus === "valid"
+                                                ? "text-emerald-400"
+                                                : draft.plan.subscriptionPreview.couponStatus === "invalid"
+                                                    ? "text-rose-400"
+                                                    : "text-slate-200",
+                                        ].join(" ")}
+                                    >
+                                        {draft.plan.subscriptionPreview.couponStatus}
+                                    </dd>
+                                </div>
+                            </dl>
+                        </div>
                     </div>
                 </section>
             </div>
@@ -440,7 +561,7 @@ export function ReviewForm() {
                         className="mt-8 inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-fuchsia-500 px-5 py-4 text-sm font-semibold text-white transition hover:bg-fuchsia-400 disabled:cursor-not-allowed disabled:opacity-50 cursor-pointer"
                     >
                         Provisionar entorno
-                        <PiArrowCircleUpRightBold size={18}/>
+                        <PiArrowCircleUpRightBold size={18} />
                     </button>
 
                     <p className="mt-3 text-center text-xs leading-5 text-slate-500">

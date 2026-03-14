@@ -84,6 +84,28 @@ export type OnboardingDraft = {
             autoIncrement: boolean;
         }>;
     };
+    plan: {
+        planCode: "TRIAL" | "PROFESSIONAL" | "ENTERPRISE";
+        couponCode: string;
+        subscriptionPreview: {
+            basePriceCents: number;
+            finalPriceCents: number;
+            currencyCode: string;
+            billingInterval: "MONTH" | "YEAR" | "LIFETIME";
+            maxUsers: number | null;
+            maxProjects: number | null;
+            trialDays: number;
+            isBeta: boolean;
+            percentOff: number | null;
+            amountOffCents: number | null;
+            couponStatus: "idle" | "valid" | "invalid";
+            couponMessage: string;
+            appliedCouponCode: string;
+        };
+    };
+    provisioning: {
+        requestKey: string;
+    };
 };
 
 const STORAGE_KEY = "saas-onboarding-draft";
@@ -263,6 +285,28 @@ const DEFAULT_DRAFT: OnboardingDraft = {
             },
         ],
     },
+    plan: {
+        planCode: "TRIAL",
+        couponCode: "",
+        subscriptionPreview: {
+            basePriceCents: 0,
+            finalPriceCents: 0,
+            currencyCode: "USD",
+            billingInterval: "MONTH",
+            maxUsers: 2,
+            maxProjects: 3,
+            trialDays: 30,
+            isBeta: false,
+            percentOff: null,
+            amountOffCents: null,
+            couponStatus: "idle",
+            couponMessage: "",
+            appliedCouponCode: "",
+        },
+    },
+    provisioning: {
+        requestKey: "",
+    },
 
 };
 
@@ -312,6 +356,14 @@ export function useOnboardingDraft() {
                         ...DEFAULT_DRAFT.numberRanges,
                         ...parsed.numberRanges,
                         ranges: parsed.numberRanges?.ranges ?? DEFAULT_DRAFT.numberRanges.ranges,
+                    },
+                    plan: {
+                        ...DEFAULT_DRAFT.plan,
+                        ...parsed.plan,
+                        subscriptionPreview: {
+                            ...DEFAULT_DRAFT.plan.subscriptionPreview,
+                            ...parsed.plan?.subscriptionPreview,
+                        },
                     },
                 });
             }

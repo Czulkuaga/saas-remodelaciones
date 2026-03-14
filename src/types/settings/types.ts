@@ -38,6 +38,10 @@ export type TenantSettingsCounts = {
 export type TenantBrandingDTO = {
   logoUrl: string | null;
   logoName: string | null;
+
+  logoDarkUrl: string | null;
+  logoLightUrl: string | null;
+  logoIconUrl: string | null;
 };
 
 /** BP principal (empresa del tenant) */
@@ -109,9 +113,7 @@ export type TenantSettingsDTO = {
   countries: CountryDTO[];
 
   // branding
-  branding: TenantBrandingDTO | null;
-  logoUrl?: string;
-  logoName?: string;
+  branding: TenantBrandingDTO;
 
   // org BP
   orgBP: TenantOrgBPDTO | null;

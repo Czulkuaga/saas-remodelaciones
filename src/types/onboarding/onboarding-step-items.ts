@@ -7,7 +7,8 @@ export type OnboardingStepIconKey =
     | "person"
     | "shield"
     | "tag"
-    | "task_alt";
+    | "task_alt"
+    | "plans";
 
 export type OnboardingStepItem = {
     id: string;
@@ -65,6 +66,12 @@ export const ONBOARDING_STEPS: OnboardingStepItem[] = [
         title: "Numeración",
         href: "/onboarding/number-ranges",
         icon: "tag",
+    },
+        {
+        id: "plan",
+        title: "Subscripciones",
+        href: "/onboarding/plan",
+        icon: "plans",
     },
     {
         id: "review",

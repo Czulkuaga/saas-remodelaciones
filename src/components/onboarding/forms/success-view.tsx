@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import {
     GoCheckCircle,
@@ -13,7 +14,9 @@ import { IoIosHelpCircleOutline } from "react-icons/io";
 
 export function SuccessView() {
     const router = useRouter();
-    const { draft, hydrated } = useOnboardingDraft();
+    const { draft, hydrated, resetDraft } = useOnboardingDraft();
+    const [isSubmitting, setIsSubmitting] = useState(false);
+    const [loginError, setLoginError] = useState("");
 
     if (!hydrated) {
         return (
@@ -23,14 +26,65 @@ export function SuccessView() {
         );
     }
 
+    const rootDomain =
+        process.env.NEXT_PUBLIC_ROOT_DOMAIN ?? "remodelaciones.app";
+
+    const tenantSlug = draft.organization.slug || "";
     const tenantName =
         draft.branding.brandName ||
         draft.organization.displayName ||
         draft.organization.legalName ||
         "Tu organización";
 
-    const accessUrl = `https://${draft.organization.slug || "tenant"}.tudominio.com`;
+    const accessUrl = `https://${tenantSlug}.${rootDomain}`;
     const adminEmail = draft.adminUser.email || draft.businessPartner.email || "-";
+
+    async function handleGoToDashboard() {
+        if (isSubmitting) return;
+
+        setIsSubmitting(true);
+        setLoginError("");
+
+        try {
+            if (!draft.adminUser.setupPasswordNow || !draft.adminUser.password) {
+                window.location.href = `${accessUrl}/tenant`;
+                return;
+            }
+
+            const res = await fetch("/api/auth/login-from-onboarding", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify({
+                    tenantSlug,
+                    email: draft.adminUser.email,
+                    password: draft.adminUser.password,
+                    remember: true,
+                    next: "/dashboard",
+                }),
+            });
+
+            const json = await res.json().catch(() => null);
+
+            if (!res.ok || !json?.ok) {
+                setLoginError(
+                    json?.message ||
+                    "No fue posible iniciar sesión automáticamente. Intenta iniciar sesión manualmente."
+                );
+                return;
+            }
+
+            resetDraft?.();
+            window.location.href = json.redirectTo;
+        } catch {
+            setLoginError(
+                "Ocurrió un problema al iniciar sesión automáticamente. Intenta nuevamente."
+            );
+        } finally {
+            setIsSubmitting(false);
+        }
+    }
 
     return (
         <main className="relative min-h-screen overflow-hidden bg-slate-950 text-slate-100">
@@ -73,7 +127,8 @@ export function SuccessView() {
                                 </h1>
 
                                 <p className="mx-auto max-w-2xl text-lg leading-8 text-slate-400 md:text-xl">
-                                    Bienvenido a <span className="font-semibold text-slate-200">{tenantName}</span>.
+                                    Bienvenido a{" "}
+                                    <span className="font-semibold text-slate-200">{tenantName}</span>.
                                     La configuración inicial fue preparada correctamente y tu entorno ya
                                     está listo para continuar con la operación del tenant.
                                 </p>
@@ -120,7 +175,7 @@ export function SuccessView() {
                                                 Tenant
                                             </p>
                                             <p className="mt-2 text-sm font-medium text-slate-200">
-                                                {draft.organization.slug || "-"}
+                                                {tenantSlug || "-"}
                                             </p>
                                         </div>
 
@@ -129,7 +184,8 @@ export function SuccessView() {
                                                 Roles / Ranges
                                             </p>
                                             <p className="mt-2 text-sm font-medium text-slate-200">
-                                                {draft.roles.roles.length} roles · {draft.numberRanges.ranges.length} ranges
+                                                {draft.roles.roles.length} roles ·{" "}
+                                                {draft.numberRanges.ranges.length} ranges
                                             </p>
                                         </div>
                                     </div>
@@ -139,21 +195,28 @@ export function SuccessView() {
                             <div className="flex w-full flex-col justify-center gap-4 sm:flex-row">
                                 <button
                                     type="button"
-                                    onClick={() => router.push("/tenant")}
-                                    className="inline-flex min-w-55 items-center justify-center gap-2 rounded-2xl bg-fuchsia-500 px-8 py-4 text-lg font-bold text-white shadow-lg shadow-fuchsia-500/20 transition hover:bg-fuchsia-400 cursor-pointer"
+                                    onClick={handleGoToDashboard}
+                                    disabled={isSubmitting}
+                                    className="inline-flex min-w-55 items-center justify-center gap-2 rounded-2xl bg-fuchsia-500 px-8 py-4 text-lg font-bold text-white shadow-lg shadow-fuchsia-500/20 transition hover:bg-fuchsia-400 disabled:cursor-not-allowed disabled:opacity-70 cursor-pointer"
                                 >
-                                    Ir a Iniciar sesión
-                                    <FaArrowRight size={18}/>
+                                    {isSubmitting ? "Ingresando..." : "Ir al login"}
+                                    <FaArrowRight size={18} />
                                 </button>
                             </div>
 
+                            {loginError ? (
+                                <div className="mt-6 w-full max-w-2xl rounded-2xl border border-rose-500/20 bg-rose-500/10 px-5 py-4 text-left">
+                                    <p className="text-sm text-rose-300">{loginError}</p>
+                                </div>
+                            ) : null}
+
                             <div className="mt-14 flex items-center gap-2 text-sm text-slate-500">
-                                <IoIosHelpCircleOutline size={18}/>
+                                <IoIosHelpCircleOutline size={18} />
                                 <span>
                                     ¿Necesitas ayuda?{" "}
                                     <button
                                         type="button"
-                                        className="font-medium text-fuchsia-300 transition hover:underline cursor-pointer"
+                                        className="cursor-pointer font-medium text-fuchsia-300 transition hover:underline"
                                     >
                                         Contactar soporte
                                     </button>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
     GoDatabase,
@@ -12,7 +12,11 @@ import {
 } from "react-icons/go";
 import { useOnboardingDraft } from "@/components/onboarding/use-onboarding-draft";
 
-type ProvisioningLogStatus = "SUCCESS" | "EXECUTE" | "WAITING";
+export function generateProvisionRequestKey() {
+    return crypto.randomUUID();
+}
+
+type ProvisioningLogStatus = "SUCCESS" | "EXECUTE" | "WAITING" | "ERROR";
 
 type ProvisioningLogItem = {
     id: string;
@@ -20,24 +24,44 @@ type ProvisioningLogItem = {
     text: string;
 };
 
-const FINAL_PROGRESS = 100;
+type ProvisioningApiSuccess = {
+    ok: true;
+    tenantId: string;
+    slug: string;
+    dashboardUrl: string;
+    code?: string;
+};
+
+type ProvisioningApiError = {
+    ok: false;
+    code: string;
+    message: string;
+    detail?: string;
+    step?: string;
+};
+
+const FINAL_PROGRESS = 96;
 const STEP_INTERVAL_MS = 1200;
 
 function getStatusClass(status: ProvisioningLogStatus) {
     if (status === "SUCCESS") return "text-emerald-400";
     if (status === "EXECUTE") return "text-fuchsia-300";
+    if (status === "ERROR") return "text-rose-400";
     return "text-slate-500";
 }
 
 function getStatusLabel(status: ProvisioningLogStatus) {
     if (status === "SUCCESS") return "[SUCCESS]";
     if (status === "EXECUTE") return "[EXECUTE]";
+    if (status === "ERROR") return "[ERROR]";
     return "[WAITING]";
 }
 
 export function ProvisioningView() {
     const router = useRouter();
-    const { draft, hydrated } = useOnboardingDraft();
+    const { draft, hydrated, updateDraft } = useOnboardingDraft();
+
+    const startedRef = useRef(false);
 
     const baseLogs = useMemo<ProvisioningLogItem[]>(
         () => [
@@ -87,6 +111,11 @@ export function ProvisioningView() {
                 text: "Generating number ranges for tenant entities...",
             },
             {
+                id: "subscription",
+                status: "WAITING",
+                text: "Creating initial plan subscription and tenant limits...",
+            },
+            {
                 id: "health",
                 status: "WAITING",
                 text: "Running environment health checks and readiness validation...",
@@ -99,6 +128,10 @@ export function ProvisioningView() {
     const [activeIndex, setActiveIndex] = useState(2);
     const [logs, setLogs] = useState<ProvisioningLogItem[]>(baseLogs);
 
+    const [serverState, setServerState] = useState<"idle" | "running" | "success" | "error">("idle");
+    const [serverError, setServerError] = useState("");
+    const [serverErrorStep, setServerErrorStep] = useState<string | null>(null);
+
     useEffect(() => {
         setLogs(baseLogs);
     }, [baseLogs]);
@@ -106,14 +139,23 @@ export function ProvisioningView() {
     useEffect(() => {
         if (!hydrated) return;
 
-        if (activeIndex >= logs.length) {
-            const finalTimer = window.setTimeout(() => {
-                // router.push("/onboarding/success");
-                return
-            }, 1400);
+        updateDraft((prev) => {
+            if (prev.provisioning?.requestKey) return prev;
 
-            return () => window.clearTimeout(finalTimer);
-        }
+            return {
+                ...prev,
+                provisioning: {
+                    ...prev.provisioning,
+                    requestKey: generateProvisionRequestKey(),
+                },
+            };
+        });
+    }, [hydrated, updateDraft]);
+
+    useEffect(() => {
+        if (!hydrated) return;
+        if (serverState === "error") return;
+        if (serverState === "success") return;
 
         const timer = window.setTimeout(() => {
             setLogs((prev) =>
@@ -124,17 +166,140 @@ export function ProvisioningView() {
                 })
             );
 
-            const nextProgress = Math.min(
-                FINAL_PROGRESS,
-                Math.round(((activeIndex + 1) / logs.length) * 100)
-            );
+            setProgress((prev) => {
+                return Math.min(
+                    FINAL_PROGRESS,
+                    Math.max(prev, Math.round(((activeIndex + 1) / logs.length) * FINAL_PROGRESS))
+                );
+            });
 
-            setProgress(nextProgress);
-            setActiveIndex((prev) => prev + 1);
+            setActiveIndex((prev) => {
+                if (prev >= logs.length - 1) return prev;
+                return prev + 1;
+            });
         }, STEP_INTERVAL_MS);
 
         return () => window.clearTimeout(timer);
-    }, [activeIndex, hydrated, logs.length, router]);
+    }, [activeIndex, hydrated, logs.length, serverState]);
+
+    useEffect(() => {
+        if (!hydrated) return;
+        if (!draft.provisioning?.requestKey) return;
+        if (startedRef.current) return;
+
+        startedRef.current = true;
+
+        let cancelled = false;
+
+        async function runProvisioning() {
+            try {
+                setServerState("running");
+                setServerError("");
+                setServerErrorStep(null);
+
+                const res = await fetch("/api/onboarding/provision", {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                    },
+                    body: JSON.stringify({
+                        requestKey: draft.provisioning.requestKey,
+                        draft,
+                    }),
+                });
+
+                const json = (await res.json()) as
+                    | ProvisioningApiSuccess
+                    | ProvisioningApiError;
+
+                if (cancelled) return;
+
+                if (!res.ok || !json.ok) {
+                    const errorJson = json as ProvisioningApiError;
+
+                    setServerState("error");
+                    setServerError(
+                        errorJson.detail || errorJson.message || "No fue posible aprovisionar el tenant."
+                    );
+                    setServerErrorStep(errorJson.step ?? null);
+
+                    setLogs((prev) => [
+                        ...prev,
+                        {
+                            id: `error-${Date.now()}`,
+                            status: "ERROR",
+                            text: errorJson.message || "Provisioning failed",
+                        },
+                    ]);
+
+                    return;
+                }
+
+                setServerState("success");
+                setProgress(100);
+                setLogs((prev) =>
+                    prev.map((item) => ({
+                        ...item,
+                        status: item.status === "WAITING" || item.status === "EXECUTE" ? "SUCCESS" : item.status,
+                    }))
+                );
+
+                window.setTimeout(() => {
+                    router.push("/onboarding/success");
+                }, 1200);
+            } catch (error) {
+                if (cancelled) return;
+
+                setServerState("error");
+                setServerError("No fue posible conectar con el servicio de provisioning.");
+
+                setLogs((prev) => [
+                    ...prev,
+                    {
+                        id: `error-network-${Date.now()}`,
+                        status: "ERROR",
+                        text: "Network or server connection error during provisioning.",
+                    },
+                ]);
+            }
+        }
+
+        runProvisioning();
+
+        return () => {
+            cancelled = true;
+        };
+    }, [hydrated, draft, router]);
+
+    function handleRetry() {
+        startedRef.current = false;
+        setServerState("idle");
+        setServerError("");
+        setServerErrorStep(null);
+        setProgress(12);
+        setActiveIndex(2);
+        setLogs(baseLogs);
+
+        updateDraft((prev) => ({
+            ...prev,
+            provisioning: {
+                ...prev.provisioning,
+                requestKey: generateProvisionRequestKey(),
+            },
+        }));
+    }
+
+    function handleBackToReview() {
+        updateDraft((prev) => ({
+            ...prev,
+            provisioning: {
+                ...prev.provisioning,
+                requestKey: generateProvisionRequestKey(),
+            },
+        }));
+
+        router.push("/onboarding/review");
+    }
 
     if (!hydrated) {
         return (
@@ -151,8 +316,10 @@ export function ProvisioningView() {
         "Tu organización";
 
     const currentStepLabel =
-        logs[Math.min(activeIndex, logs.length - 1)]?.text ??
-        "Finalizando provisioning...";
+        serverState === "error"
+            ? "Provisioning detenido por error"
+            : logs[Math.min(activeIndex, logs.length - 1)]?.text ??
+            "Finalizando provisioning...";
 
     return (
         <main className="relative min-h-screen overflow-hidden bg-slate-950 text-slate-100">
@@ -189,8 +356,7 @@ export function ProvisioningView() {
                         </h1>
                         <p className="mt-4 text-base leading-7 text-slate-400 md:text-lg">
                             Estamos creando la estructura base del tenant, configurando seguridad,
-                            numeración y acceso inicial. Este proceso es visual por ahora y luego
-                            lo conectaremos al backend real.
+                            numeración y acceso inicial.
                         </p>
                     </div>
 
@@ -205,7 +371,7 @@ export function ProvisioningView() {
                                 <span className="text-2xl text-fuchsia-300">%</span>
                             </div>
                             <div className="mt-1 text-xs font-semibold uppercase tracking-[0.2em] text-fuchsia-300/70">
-                                System Ready
+                                {serverState === "error" ? "FAILED" : "System Ready"}
                             </div>
                         </div>
 
@@ -250,11 +416,16 @@ export function ProvisioningView() {
 
                         <div className="mt-3 flex items-center justify-between text-[11px] font-mono text-slate-500">
                             <span>
-                                Estado: {progress >= 100 ? "FINALIZANDO" : "WORKING"}
+                                Estado:{" "}
+                                {serverState === "error"
+                                    ? "FAILED"
+                                    : serverState === "success"
+                                        ? "SUCCESS"
+                                        : progress >= 100
+                                            ? "FINALIZING"
+                                            : "WORKING"}
                             </span>
-                            <span>
-                                Tenant: {draft.organization.slug || "pending-slug"}
-                            </span>
+                            <span>Tenant: {draft.organization.slug || "pending-slug"}</span>
                         </div>
                     </div>
 
@@ -283,7 +454,9 @@ export function ProvisioningView() {
                                         className={
                                             log.status === "WAITING"
                                                 ? "text-slate-500"
-                                                : "text-slate-200"
+                                                : log.status === "ERROR"
+                                                    ? "text-rose-300"
+                                                    : "text-slate-200"
                                         }
                                     >
                                         {log.text}
@@ -291,7 +464,7 @@ export function ProvisioningView() {
                                 </div>
                             ))}
 
-                            {progress < 100 ? (
+                            {serverState === "running" && progress < 100 ? (
                                 <div className="flex animate-pulse gap-4">
                                     <span className="text-fuchsia-300">&gt;</span>
                                     <span className="text-fuchsia-300">
@@ -302,13 +475,48 @@ export function ProvisioningView() {
                         </div>
                     </div>
 
-                    <div className="mt-8 flex w-full max-w-3xl items-start gap-3 rounded-2xl border border-amber-500/20 bg-amber-500/10 px-6 py-4">
-                        <GoInfo className="mt-0.5 text-amber-400" />
-                        <p className="text-sm leading-6 text-amber-200/80">
-                            No cierres esta ventana mientras termina la simulación del proceso.
-                            Luego serás redirigido automáticamente a la pantalla final de éxito.
-                        </p>
-                    </div>
+                    {serverState === "error" ? (
+                        <div className="mt-8 w-full max-w-3xl rounded-2xl border border-rose-500/20 bg-rose-500/10 px-6 py-5">
+                            <h3 className="text-lg font-semibold text-rose-300">
+                                No fue posible crear el tenant
+                            </h3>
+                            <p className="mt-2 text-sm leading-6 text-slate-300">
+                                {serverError}
+                            </p>
+
+                            {serverErrorStep ? (
+                                <p className="mt-2 text-xs uppercase tracking-[0.18em] text-rose-300/80">
+                                    Paso sugerido para revisar: {serverErrorStep}
+                                </p>
+                            ) : null}
+
+                            <div className="mt-5 flex flex-wrap gap-3">
+                                <button
+                                    type="button"
+                                    onClick={handleRetry}
+                                    className="rounded-xl bg-fuchsia-500 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-fuchsia-400"
+                                >
+                                    Reintentar
+                                </button>
+
+                                <button
+                                    type="button"
+                                    onClick={handleBackToReview}
+                                    className="rounded-xl border border-slate-700 px-4 py-2.5 text-sm font-semibold text-slate-200 transition hover:bg-slate-800"
+                                >
+                                    Validar datos nuevamente
+                                </button>
+                            </div>
+                        </div>
+                    ) : (
+                        <div className="mt-8 flex w-full max-w-3xl items-start gap-3 rounded-2xl border border-amber-500/20 bg-amber-500/10 px-6 py-4">
+                            <GoInfo className="mt-0.5 text-amber-400" />
+                            <p className="text-sm leading-6 text-amber-200/80">
+                                No cierres esta ventana mientras termina el proceso. Si algo falla,
+                                podrás volver a revisar los datos antes de reintentar.
+                            </p>
+                        </div>
+                    )}
 
                     <div className="mt-10 grid w-full max-w-4xl grid-cols-1 gap-4 md:grid-cols-3">
                         <div className="rounded-2xl border border-slate-800 bg-slate-900/40 p-4">
