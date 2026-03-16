@@ -10,8 +10,8 @@ export default function TenantBrandingCardClient({ initial }: { initial: TenantS
   const inputId = useId();
   const fileRef = useRef<HTMLInputElement | null>(null);
 
-  const [logoUrl, setLogoUrl] = useState<string | null>(initial.logoLightUrl ?? null);
-  const [logoName, setLogoName] = useState<string>(initial.logoName ?? "Sin logo");
+  const [logoUrl, setLogoUrl] = useState<string | null>(initial.branding.logoLightUrl ?? null);
+  const [logoName, setLogoName] = useState<string>(initial.branding.logoName ?? "Sin logo");
   const [error, setError] = useState<string | null>(null);
 
   const [isPending, startTransition] = useTransition();
