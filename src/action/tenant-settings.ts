@@ -71,7 +71,7 @@ export async function getTenantSettingsAction(): Promise<TenantSettingsDTO> {
                         },
 
                         businessPartnerLocations: {
-                            where: { usage: "BILLING", isPrimary: true },
+                            where: { isPrimary: true },
                             take: 1,
                             select: {
                                 location: {

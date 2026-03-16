@@ -9,7 +9,7 @@ export default function RolesOnboardingPage() {
             stepTitle="Roles y accesos"
             stepDescription="Configura los perfiles de acceso iniciales del tenant y define qué permisos tendrá cada rol operativo."
             stepNumber={7}
-            totalSteps={9}
+            totalSteps={10}
             backHref="/onboarding/admin-user"
             nextHref="/onboarding/number-ranges"
             nextLabel="Continuar a numeración"

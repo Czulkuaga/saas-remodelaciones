@@ -132,7 +132,7 @@ export function NumberRangesForm() {
 
     function handleContinue() {
         if (!validateForm()) return;
-        router.push("/onboarding/review");
+        router.push("/onboarding/plan");
     }
 
     function applyDefaults() {

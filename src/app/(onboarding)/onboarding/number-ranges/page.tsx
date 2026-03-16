@@ -9,10 +9,10 @@ export default function NumberRangesOnboardingPage() {
             stepTitle="Numeración inicial"
             stepDescription="Configura cómo se generarán los identificadores automáticos de las entidades principales del tenant."
             stepNumber={8}
-            totalSteps={9}
+            totalSteps={10}
             backHref="/onboarding/roles"
-            nextHref="/onboarding/review"
-            nextLabel="Continuar a revisión"
+            nextHref="/onboarding/plan"
+            nextLabel="Continuar a plan"
             helpPanel={
                 <div className="space-y-6">
                     <section className="rounded-2xl border border-slate-800 bg-slate-900/50 p-5">

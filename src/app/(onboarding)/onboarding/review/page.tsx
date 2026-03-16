@@ -8,9 +8,9 @@ export default function ReviewOnboardingPage() {
             currentStepId="review"
             stepTitle="Revisión y aprovisionamiento"
             stepDescription="Verifica la configuración completa del tenant antes de ejecutar la creación definitiva del entorno."
-            stepNumber={9}
-            totalSteps={9}
-            backHref="/onboarding/subscription"
+            stepNumber={10}
+            totalSteps={10}
+            backHref="/onboarding/plan"
             nextLabel="Provisionar entorno"
             helpPanel={
                 <div className="space-y-6">

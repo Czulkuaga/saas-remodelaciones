@@ -412,6 +412,7 @@ export async function POST(req: NextRequest) {
                         email: data.adminUser.email,
                         emailNormalized: data.adminUser.email.trim().toLowerCase(),
                         phone: data.adminUser.phone,
+                        phoneNormalized: data.adminUser.phone,
                         // OJO: si ya tienes helper de hash úsalo aquí
                         passwordHash: passwordHash,
                         isActive: true,

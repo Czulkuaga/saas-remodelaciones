@@ -9,7 +9,7 @@ export default function StructureOnboardingPage() {
             stepTitle="Estructura base"
             stepDescription="Define la unidad organizacional principal y la ubicación inicial que servirán como base operativa del tenant."
             stepNumber={4}
-            totalSteps={9}
+            totalSteps={10}
             backHref="/onboarding/regional"
             nextHref="/onboarding/business-partner"
             nextLabel="Continuar a business partner"

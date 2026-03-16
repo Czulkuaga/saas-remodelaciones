@@ -9,7 +9,7 @@ export default function OrganizationOnboardingPage() {
             stepTitle="Identidad de la organización"
             stepDescription="Define la base de tu tenant: nombre comercial, slug, código interno y configuración regional principal."
             stepNumber={1}
-            totalSteps={9}
+            totalSteps={10}
             nextLabel="Continuar a branding"
             helpPanel={
                 <div className="space-y-6">

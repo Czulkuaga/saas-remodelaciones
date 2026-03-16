@@ -9,7 +9,7 @@ export default function RegionalOnboardingPage() {
             stepTitle="Configuración regional"
             stepDescription="Define cómo el tenant manejará idioma, país base, zona horaria, moneda y formatos operativos."
             stepNumber={3}
-            totalSteps={9}
+            totalSteps={10}
             backHref="/onboarding/branding"
             nextHref="/onboarding/structure"
             nextLabel="Continuar a estructura base"

@@ -9,7 +9,7 @@ export default function AdminUserOnboardingPage() {
             stepTitle="Administrador inicial"
             stepDescription="Configura el usuario principal que tendrá control inicial del tenant, acceso administrativo y capacidad de gestión de usuarios."
             stepNumber={6}
-            totalSteps={9}
+            totalSteps={10}
             backHref="/onboarding/business-partner"
             nextHref="/onboarding/roles"
             nextLabel="Continuar a roles y accesos"

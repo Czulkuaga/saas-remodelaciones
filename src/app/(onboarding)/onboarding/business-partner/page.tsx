@@ -9,7 +9,7 @@ export default function BusinessPartnerOnboardingPage() {
             stepTitle="Business partner principal"
             stepDescription="Define la entidad principal que representará legal y operativamente a la organización dentro de la plataforma."
             stepNumber={5}
-            totalSteps={9}
+            totalSteps={10}
             backHref="/onboarding/structure"
             nextHref="/onboarding/admin-user"
             nextLabel="Continuar a administrador inicial"

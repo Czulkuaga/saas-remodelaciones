@@ -9,7 +9,7 @@ export default function BrandingOnboardingPage() {
             stepTitle="Branding de la organización"
             stepDescription="Personaliza la identidad visual inicial del tenant para que el workspace refleje tu marca desde el primer acceso."
             stepNumber={2}
-            totalSteps={9}
+            totalSteps={10}
             backHref="/onboarding/organization"
             nextHref="/onboarding/regional"
             nextLabel="Continuar a configuración regional"
