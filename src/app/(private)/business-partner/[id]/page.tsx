@@ -90,7 +90,7 @@ export default async function BusinessPartnerDetailPage({ params }: { params: Pr
                                 bp.roles.map((r: string) => (
                                     <span
                                         key={r}
-                                        className="text-[11px] px-2 py-1 rounded-full bg-fuchsia-500/10 border border-fuchsia-500/20 text-fuchsia-200"
+                                        className="text-[11px] px-2 py-1 rounded-full bg-fuchsia-500/10 border border-fuchsia-500/20 text-fuchsia-600 dark:text-fuchsia-200"
                                     >
                                         {r}
                                     </span>

@@ -102,14 +102,14 @@ export type TeamPartnerOption = {
 
 function tone(type: "success" | "error") {
     return type === "success"
-        ? "border-emerald-500/20 bg-emerald-500/10 text-emerald-200"
-        : "border-rose-500/20 bg-rose-500/10 text-rose-200";
+        ? "border-emerald-500/20 bg-emerald-500/10 text-emerald-600 dark:text-emerald-200"
+        : "border-rose-500/20 bg-rose-500/10 text-rose-600 dark:text-rose-200";
 }
 
 // --- helpers (UI-only) ---
-// Máx 2 niveles: 01 y 01.10
+// Máx 2 niveles: 01 y 01.100
 const RE_ROOT = /^\d{2}$/; // 01
-const RE_CHILD = /^\d{2}\.\d{2}$/; // 01.10
+const RE_CHILD = /^\d{2}\.\d{3}$/;
 
 function isRootCode(s: string) {
     return RE_ROOT.test(s);
@@ -122,16 +122,15 @@ function normalizeCode(s: string) {
 }
 function parentPrefixFromCode(code: string) {
     // "04.10" -> "04"
-    const m = /^(\d{2})\.\d{2}$/.exec(code);
+    const m = /^(\d{2})\.\d{3}$/.exec(code);
     return m?.[1] ?? null;
 }
 function nextChildCode(parentCode: string, usedCodes: Set<string>) {
-    // parentCode: "04"
-    for (let i = 1; i <= 99; i++) {
-        const child = `${parentCode}.${String(i).padStart(2, "0")}`;
+    for (let i = 1; i <= 999; i++) {
+        const child = `${parentCode}.${String(i).padStart(3, "0")}`;
         if (!usedCodes.has(child)) return child;
     }
-    return `${parentCode}.01`;
+    return `${parentCode}.001`;
 }
 
 function formatDate(d: Date | null | undefined) {
@@ -171,7 +170,7 @@ export function ProjectBudgetClient({
     const editableBudgetId = draftBudget?.id ?? null;
 
     // Partners
-    const partners = teamPartners ?? [];
+    // const partners = teamPartners ?? [];
 
     // Solo capítulos como parents (root = sin parentId)
     const parents = useMemo(() => lines.filter((l) => !l.parentId), [lines]);
@@ -197,7 +196,7 @@ export function ProjectBudgetClient({
         return `${n.toLocaleString("es-CO", { maximumFractionDigits: 2 })} ${code}`;
     }
 
-    function setFlash(type: "success" | "error", text: string, ms = 1400) {
+    function setFlash(type: "success" | "error", text: string, ms = 3000) {
         setMsg({ type, text });
         window.setTimeout(() => setMsg(null), ms);
     }
@@ -282,22 +281,30 @@ export function ProjectBudgetClient({
         }
 
         const c = normalizeCode(code);
+        const isRoot = isRootCode(c);
+        const isChild = isChildCode(c);
+        const looksInvalid = c.length > 0 && !isRoot && !isChild;
 
         if (!c) return setFlash("error", "Código requerido.");
         if (!title.trim()) return setFlash("error", "Título requerido.");
-        if (codeLooksInvalid) return setFlash("error", 'Código inválido. Usa "01" o "01.10".');
-
-        // coherencia parent/código (UI)
-        if (isChildCode(c) && !parentId) {
-            return setFlash("error", "Este código es sublínea (01.10). Debes elegir un capítulo (parent).");
+        if (looksInvalid) {
+            return setFlash("error", 'Código inválido. Usa "01", "01.10" o "01.100".');
         }
-        if (isRootCode(c) && parentId) {
+
+        if (isChild && !parentId) {
+            return setFlash("error", 'Este código es sublínea (01.10 o 01.100). Debes elegir un capítulo (parent).');
+        }
+
+        if (isRoot && parentId) {
             return setFlash("error", 'Un capítulo (01) no puede tener parent. Limpia "(Sin parent)".');
         }
 
         if (parentId && parentForSelect) {
             if (!c.startsWith(parentForSelect.code + ".")) {
-                return setFlash("error", `El código debe iniciar por "${parentForSelect.code}." (ej: ${parentForSelect.code}.10).`);
+                return setFlash(
+                    "error",
+                    `El código debe iniciar por "${parentForSelect.code}." (ej: ${parentForSelect.code}.010 o ${parentForSelect.code}.100).`
+                );
             }
         }
 
@@ -717,7 +724,7 @@ export function ProjectBudgetClient({
                                         router.refresh();
                                     });
                                 }}
-                                className="transition ease-in-out flex px-4 py-2 items-center justify-center rounded-md border border-fuchsia-500/30 bg-fuchsia-500/10 text-sm font-bold text-fuchsia-200 hover:bg-fuchsia-500/15 disabled:opacity-60 cursor-pointer"
+                                className="transition ease-in-out flex px-4 py-2 items-center justify-center rounded-md border border-fuchsia-500/30 bg-fuchsia-500/10 text-sm font-bold text-fuchsia-600 dark:text-fuchsia-200 hover:bg-fuchsia-500/15 disabled:opacity-60 cursor-pointer"
                             >
                                 {pending ? "Creando..." : "Crear borrador de revisión"}
                             </button>
@@ -736,7 +743,7 @@ export function ProjectBudgetClient({
                                         router.refresh();
                                     });
                                 }}
-                                className="transition ease-in-out flex px-4 py-2 items-center justify-center rounded-md bg-emerald-600/90 text-sm font-bold text-white shadow-sm hover:bg-emerald-600 disabled:opacity-60 cursor-pointer"
+                                className="transition ease-in-out flex px-4 py-2 items-center justify-center rounded-md bg-emerald-600/90 text-sm font-bold text-white shadow-sm hover:bg-emerald-600 disabled:opacity-60 cursor-pointer disabled:cursor-not-allowed"
                                 title="Convierte el borrador en el presupuesto activo (APPROVED)"
                             >
                                 {pending ? "Aprobando..." : "Aprobar borrador"}
@@ -748,17 +755,17 @@ export function ProjectBudgetClient({
                 {/* Banner movimientos */}
                 <div className="px-5 pt-4">
                     {!movementsAllowed ? (
-                        <div className="rounded-xl border border-rose-500/20 bg-rose-500/10 p-3 text-xs text-rose-200">
+                        <div className="rounded-xl border border-rose-500/20 bg-rose-500/10 p-3 text-xs text-rose-600 dark:text-rose-200">
                             No puedes registrar movimientos (compromisos/gastos) hasta que exista un presupuesto <b>APPROVED</b>.
                         </div>
                     ) : draftBudget ? (
-                        <div className="rounded-xl border border-slate-500/20 bg-slate-500/10 p-3 text-xs text-slate-200">
+                        <div className="rounded-xl border border-slate-500/20 bg-slate-500/10 p-3 text-xs text-slate-700 dark:text-slate-200">
                             Existe un borrador <b>v{draftBudget.version}</b>. Los movimientos se registran únicamente en el presupuesto activo{" "}
                             <b>v{activeBudget?.version}</b>.
                         </div>
                     ) : null}
                     {partnerOptions.length === 0 ? (
-                        <div className="rounded-xl border border-amber-500/20 bg-amber-500/10 p-3 text-xs text-amber-200">
+                        <div className="rounded-xl border border-amber-500/20 bg-amber-500/10 p-3 text-xs text-amber-600 dark:text-amber-200">
                             Tip: Asigna terceros al <b>Equipo (BP)</b> del proyecto para que aparezcan aquí como opciones.
                         </div>
                     ) : null}
@@ -780,8 +787,8 @@ export function ProjectBudgetClient({
                                 className={[
                                     "px-3 py-1.5 rounded-md text-xs font-bold border transition cursor-pointer",
                                     tab === x.k
-                                        ? "border-fuchsia-500/40 bg-fuchsia-500/15 text-fuchsia-200"
-                                        : "border-fuchsia-500/10 bg-slate-950/10 text-slate-300 hover:bg-slate-950/20",
+                                        ? "border-fuchsia-500/40 bg-fuchsia-500/15 text-fuchsia-600 dark:text-fuchsia-200"
+                                        : "border-fuchsia-500/10 bg-slate-950/10 text-slate-700 dark:text-slate-300 hover:bg-slate-950/20",
                                 ].join(" ")}
                             >
                                 {x.label}
@@ -823,13 +830,14 @@ export function ProjectBudgetClient({
                                                 setCode(next);
                                                 syncParentFromCode(next);
                                             }}
-                                            placeholder='Código (01 o 01.10)'
+                                            autoComplete="false"
+                                            placeholder='Código (01 o 01.100)'
                                             className={[
                                                 "w-full bg-slate-50 dark:bg-slate-900/40 border rounded-lg px-4 py-2.5 text-sm focus:ring-1 outline-none",
                                                 codeLooksInvalid ? "border-rose-500/30 focus:ring-rose-500" : "border-fuchsia-500/10 focus:ring-fuchsia-500",
                                             ].join(" ")}
                                         />
-                                        {codeLooksInvalid ? <p className="mt-1 text-[11px] text-rose-300">Formato: "01" o "01.10"</p> : null}
+                                        {codeLooksInvalid ? <p className="mt-1 text-[11px] text-rose-300">Formato: "01" o "01.100"</p> : null}
                                     </div>
 
                                     {/* Título */}
@@ -887,7 +895,7 @@ export function ProjectBudgetClient({
                                     <div className="md:col-span-6 -mt-1">
                                         <p className="text-[11px] text-slate-500 dark:text-slate-400">
                                             Regla: capítulos <span className="font-semibold">01</span> (sin parent) y detalles{" "}
-                                            <span className="font-semibold">01.10</span> (requieren parent del capítulo). Máx. 2 niveles.
+                                            <span className="font-semibold">01.100</span> (requieren parent del capítulo). Máx. 2 niveles.
                                         </p>
                                     </div>
 
@@ -1230,7 +1238,7 @@ export function ProjectBudgetClient({
                     ) : (
                         <div className="p-5 space-y-4">
                             {!movementsAllowed ? (
-                                <div className="rounded-xl border border-rose-500/20 bg-rose-500/10 p-3 text-xs text-rose-200">
+                                <div className="rounded-xl border border-rose-500/20 bg-rose-500/10 p-3 text-xs text-rose-600 dark:text-rose-200">
                                     No puedes registrar ingresos hasta que exista un presupuesto <b>APPROVED</b>.
                                 </div>
                             ) : (
@@ -1384,7 +1392,7 @@ export function ProjectBudgetClient({
                                                     </p>
 
                                                     <span
-                                                        className="text-[11px] px-2 py-0.5 rounded-full border border-slate-500/20 bg-slate-500/10 text-slate-200"
+                                                        className="text-[11px] px-2 py-0.5 rounded-full border border-slate-500/20 bg-slate-500/10 text-slate-700 dark:text-slate-200"
                                                         title="Capítulo: agrupa sublíneas"
                                                     >
                                                         Capítulo
@@ -1479,7 +1487,7 @@ export function ProjectBudgetClient({
                                                                             </p>
 
                                                                             <span
-                                                                                className="text-[11px] px-2 py-0.5 rounded-full border border-fuchsia-500/20 bg-fuchsia-500/10 text-fuchsia-200"
+                                                                                className="text-[11px] px-2 py-0.5 rounded-full border border-fuchsia-500/20 bg-fuchsia-500/10 text-fuchsia-600 dark:text-fuchsia-200"
                                                                                 title="Detalle: línea imputable"
                                                                             >
                                                                                 Detalle

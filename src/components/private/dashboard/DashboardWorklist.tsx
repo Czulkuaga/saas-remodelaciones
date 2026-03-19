@@ -18,10 +18,10 @@ export function DashboardWorklist({ items }: { items: WorkItem[] }) {
         <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white/60 dark:bg-slate-900/20 overflow-hidden">
             <div className="p-4 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between">
                 <div>
-                    <div className="font-bold text-slate-900 dark:text-slate-100">Bandeja de trabajo</div>
+                    <div className="font-bold text-slate-700 dark:text-slate-100">Bandeja de trabajo</div>
                     <div className="text-xs text-slate-500 dark:text-slate-400">Acciones recomendadas para el periodo seleccionado</div>
                 </div>
-                <Link href="/projects" className="text-sm font-semibold hover:underline">Ver proyectos</Link>
+                <Link href="/projects" className="text-sm text-slate-700 font-semibold hover:underline">Ver proyectos</Link>
             </div>
 
             <div className="p-3 space-y-2">

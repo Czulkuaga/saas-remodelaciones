@@ -110,13 +110,13 @@ export async function createBudgetLineAction(projectId: string, budgetId: string
     if (!title) return { ok: false as const, message: "Título requerido." };
 
     // formatos permitidos: SOLO 2 niveles
-    const RE_ROOT = /^\d{2}$/; // "01"
-    const RE_CHILD = /^\d{2}\.\d{2}$/; // "01.10"
+    const RE_ROOT = /^\d{2}$/; // 01
+    const RE_CHILD = /^\d{2}\.\d{3}$/; // 01.100
     const isRoot = RE_ROOT.test(code);
     const isChild = RE_CHILD.test(code);
 
     if (!isRoot && !isChild) {
-        return { ok: false as const, message: 'Código inválido. Usa "01" o "01.10".' };
+        return { ok: false as const, message: 'Código inválido. Usa "01" o "01.100".' };
     }
 
     // --- validar budget: pertenencia + status DRAFT ---
@@ -147,7 +147,7 @@ export async function createBudgetLineAction(projectId: string, budgetId: string
 
     // --- coherencia parent/código ---
     if (isChild && !parentId) {
-        return { ok: false as const, message: "Este código es de sublínea (01.10). Debes elegir un parent." };
+        return { ok: false as const, message: "Este código es de sublínea (01.100). Debes elegir un parent." };
     }
     if (isRoot && parentId) {
         return { ok: false as const, message: "Un capítulo (01) no puede tener parent." };

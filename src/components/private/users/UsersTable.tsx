@@ -136,7 +136,7 @@ export function UsersTable({ initialRows }: { initialRows: TenantUserRow[] }) {
     }
 
     return (
-        <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white/60 dark:bg-slate-900/20 shadow-sm">
+        <div className="rounded-2xl border border-slate-100 dark:border-slate-800 bg-white/60 dark:bg-slate-900/20 shadow-sm">
             {/* Header */}
             <div className="p-4 space-y-3">
                 <div className="flex flex-col md:flex-row gap-3 md:items-center md:justify-between">
@@ -236,8 +236,8 @@ export function UsersTable({ initialRows }: { initialRows: TenantUserRow[] }) {
             {/* Table */}
             <div className="overflow-x-auto">
                 <table className="min-w-275 w-full text-sm">
-                    <thead className="bg-slate-50 dark:bg-slate-900/40 border-y border-slate-200 dark:border-slate-800">
-                        <tr className="text-left text-slate-600 dark:text-slate-300">
+                    <thead className="bg-slate-100 dark:bg-slate-900/40 border-y border-slate-100 dark:border-slate-800">
+                        <tr className="text-left text-slate-700 dark:text-slate-100">
                             <th className="p-3">Usuario</th>
                             <th className="p-3">Email</th>
                             <th className="p-3">Teléfono</th>
@@ -247,13 +247,13 @@ export function UsersTable({ initialRows }: { initialRows: TenantUserRow[] }) {
                         </tr>
                     </thead>
 
-                    <tbody className="divide-y divide-slate-200 dark:divide-slate-800">
+                    <tbody className="divide-y divide-slate-700 dark:divide-slate-100">
                         {pageRows.map((r) => (
-                            <tr key={r.id} className="text-slate-800 dark:text-slate-100">
+                            <tr key={r.id} className="text-slate-700 dark:text-slate-100">
                                 <td className="p-3">
                                     <div className="font-semibold">{r.user.name ?? "—"}</div>
                                     <div className="text-xs text-slate-500 dark:text-slate-400">
-                                        Usuario global: {r.user.isActive ? "Activo" : "Inactivo"}
+                                        Usuario: {r.user.isActive ? "Activo" : "Inactivo"}
                                     </div>
                                 </td>
 

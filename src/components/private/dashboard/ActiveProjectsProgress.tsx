@@ -5,10 +5,10 @@ import type { ActiveProjectProgressRow } from "@/action/dashboard/dashboard-acti
 
 export function ActiveProjectsProgress({ rows }: { rows: ActiveProjectProgressRow[] }) {
     return (
-        <div className="rounded-2xl border border-slate-200/10 bg-white/5 p-4">
+        <div className="rounded-2xl border border-slate-200/80 bg-white dark:bg-white/5 p-4">
             <div className="flex items-center justify-between mb-3">
                 <div>
-                    <div className="text-sm font-bold text-slate-100">Proyectos activos</div>
+                    <div className="text-sm font-bold text-slate-700 dark:text-slate-100">Proyectos activos</div>
                     <div className="text-xs text-slate-400">Progreso basado en tareas (peso).</div>
                 </div>
                 <Link href="/projects" className="text-xs font-semibold text-fuchsia-300 hover:text-fuchsia-200">

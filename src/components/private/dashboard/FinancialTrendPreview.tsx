@@ -7,15 +7,15 @@ export function FinancialTrendPreview({ points }: { points: FinancialTrendPoint[
     const slice = points.slice(-7);
 
     return (
-        <div className="rounded-2xl border border-slate-200/10 bg-white/5 p-4">
+        <div className="rounded-2xl border border-slate-100 bg-white dark:bg-white/5 p-4">
             <div className="mb-3">
-                <div className="text-sm font-bold text-slate-100">Tendencia financiera</div>
+                <div className="text-sm font-bold text-slate-700 dark:text-slate-100">Tendencia financiera</div>
                 <div className="text-xs text-slate-400">Costos, compromisos, ingresos y margen por día.</div>
             </div>
 
             <div className="overflow-x-auto">
                 <table className="min-w-full text-xs">
-                    <thead className="text-slate-400">
+                    <thead className="text-slate-700 dark:text-slate-200">
                         <tr className="text-left">
                             <th className="py-2 pr-4">Día</th>
                             <th className="py-2 pr-4">Costos</th>
@@ -24,9 +24,9 @@ export function FinancialTrendPreview({ points }: { points: FinancialTrendPoint[
                             <th className="py-2 pr-0">Margen</th>
                         </tr>
                     </thead>
-                    <tbody className="text-slate-200">
+                    <tbody className="text-slate-700 dark:text-slate-100">
                         {slice.map((p) => (
-                            <tr key={p.label} className="border-t border-slate-200/10">
+                            <tr key={p.label} className="border-t border-slate-200">
                                 <td className="py-2 pr-4">{p.label}</td>
                                 <td className="py-2 pr-4">{p.costs.toLocaleString("es-CO")}</td>
                                 <td className="py-2 pr-4">{p.commitments.toLocaleString("es-CO")}</td>

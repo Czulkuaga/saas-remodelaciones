@@ -4,6 +4,7 @@ import { useMemo, useState, useTransition, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { createBusinessPartnerAction } from "@/action/business-partner/business-partner";
 import { PartnerType, BPRoleType } from "../../../../generated/prisma/enums";
+import Link from "next/link";
 
 type Msg = { type: "success" | "error"; text: string } | null;
 
@@ -147,11 +148,11 @@ export function BusinessPartnerCreateFormClient() {
                             </div>
 
                             {roles.length === 0 ? (
-                                <span className="text-[11px] px-2 py-1 rounded-full border border-rose-500/20 bg-rose-500/10 text-rose-200">
+                                <span className="text-[11px] px-2 py-1 rounded-full border border-rose-500/20 bg-rose-500/10 text-rose-300 dark:bg-rose-500 dark:text-rose-400">
                                     Selecciona al menos 1
                                 </span>
                             ) : (
-                                <span className="text-[11px] px-2 py-1 rounded-full border border-fuchsia-500/20 bg-fuchsia-500/10 text-fuchsia-200">
+                                <span className="text-[11px] px-2 py-1 rounded-full border border-fuchsia-500/20 bg-rose-500/10 text-rose-300 dark:bg-rose-500/40 dark:text-rose-300">
                                     {roles.length} seleccionado(s)
                                 </span>
                             )}
@@ -166,9 +167,9 @@ export function BusinessPartnerCreateFormClient() {
                                         type="button"
                                         onClick={() => toggleRole(r.value)}
                                         className={[
-                                            "text-xs font-bold rounded-full px-3 py-1.5 border transition",
+                                            "text-xs font-bold rounded-full px-3 py-1.5 border transition cursor-pointer",
                                             active
-                                                ? "border-fuchsia-500/30 bg-linear-to-br from-indigo-500/20 to-fuchsia-500/20 text-slate-100"
+                                                ? "border-fuchsia-500/30 bg-linear-to-br from-indigo-500/20 to-fuchsia-500/20 text-slate-500 dark:text-slate-100"
                                                 : "border-slate-200 dark:border-slate-700 bg-white/60 dark:bg-slate-900/20 text-slate-700 dark:text-slate-200 hover:border-fuchsia-500/20",
                                         ].join(" ")}
                                     >
@@ -245,7 +246,10 @@ export function BusinessPartnerCreateFormClient() {
                     </div>
                 </div>
 
-                <div className="mt-6 flex items-center justify-end">
+                <div className="mt-6 flex items-center justify-end gap-4">
+                    <Link href={"/business-partner"} className="border rounded-md px-4 py-2 text-sm bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-400">
+                        Cancelar
+                    </Link>
                     <button
                         type="submit"
                         disabled={pending || roles.length === 0}

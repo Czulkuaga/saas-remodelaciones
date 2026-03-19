@@ -298,7 +298,7 @@ export const FormLogin = () => {
             {/* SUBMIT */}
             <button
                 className={[
-                    "group w-full rounded-xl px-5 py-4 font-black shadow-lg transition-all flex items-center justify-center gap-2",
+                    "group w-full rounded-xl px-5 py-4 font-black shadow-lg transition-all flex items-center justify-center gap-2 cursor-pointer",
                     "text-white bg-linear-to-r from-indigo-600 to-fuchsia-600",
                     "hover:from-indigo-600/95 hover:to-fuchsia-600/95",
                     "shadow-indigo-500/20 dark:shadow-indigo-500/10",

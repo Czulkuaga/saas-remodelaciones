@@ -34,10 +34,10 @@ export async function BusinessPartnerPage({
                 {/* Header */}
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
                     <div className="min-w-0">
-                        <h2 className="text-2xl font-bold tracking-tight text-slate-100">
+                        <h2 className="text-2xl font-bold tracking-tight text-slate-700 dark:text-slate-100">
                             Terceros
                         </h2>
-                        <p className="mt-1 text-sm text-slate-400">
+                        <p className="mt-1 text-sm text-slate-700">
                             Catálogo de Business Partners (personas y organizaciones) para proyectos, compras y operaciones.
                         </p>
                     </div>

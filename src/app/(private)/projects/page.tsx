@@ -10,7 +10,7 @@ function tabClass(active: boolean) {
     return [
         "px-3 py-1.5 rounded-md text-xs font-bold border transition",
         active
-            ? "border-fuchsia-500/40 bg-fuchsia-500/15 text-fuchsia-200"
+            ? "border-fuchsia-500/40 bg-fuchsia-500/15 text-fuchsia-400 dark:text-fuchsia-200"
             : "border-fuchsia-500/10 bg-slate-950/10 text-slate-600 dark:text-slate-300 hover:bg-slate-950/20",
     ].join(" ");
 }

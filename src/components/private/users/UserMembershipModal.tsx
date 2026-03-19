@@ -36,6 +36,12 @@ export function UserMembershipModal({
     const isEdit = !!initial;
     const title = useMemo(() => (isEdit ? "Editar usuario del tenant" : "Agregar usuario al tenant"), [isEdit]);
 
+    const canSubmitPhone = phone10.length === 10;
+
+    const ALLOWED_MEMBERSHIP_CATEGORIES = Object.values(MembershipCategory).filter(
+        (c) => c !== MembershipCategory.SUPERADMIN
+    );
+
     function onlyDigits10(v: string) {
         return v.replace(/\D/g, "").slice(0, 10);
     }
@@ -49,8 +55,6 @@ export function UserMembershipModal({
         if (digits.length === 10) return digits;
         return digits.slice(-10);
     }
-
-    const canSubmitPhone = phone10.length === 10;
 
     useEffect(() => {
         if (!open) return;
@@ -225,7 +229,7 @@ export function UserMembershipModal({
                             onChange={(e) => setCategory(e.target.value as MembershipCategory)}
                             className="w-full rounded-xl border border-slate-200 dark:border-slate-800 bg-white/70 dark:bg-slate-950/30 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-fuchsia-400/30"
                         >
-                            {Object.values(MembershipCategory).map((c) => (
+                            {ALLOWED_MEMBERSHIP_CATEGORIES.map((c) => (
                                 <option key={c} value={c}>
                                     {c}
                                 </option>

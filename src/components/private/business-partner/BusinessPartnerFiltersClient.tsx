@@ -113,28 +113,28 @@ export default function BusinessPartnerFiltersClient({ initial }: Props) {
     }, [type, status, pageSize]); // 👈 inmediato
 
     return (
-        <div className="rounded-2xl border border-fuchsia-500/20 bg-slate-900/40 p-4">
+        <div className="rounded-2xl border border-fuchsia-500/20 bg-white dark:bg-slate-900/40 p-4">
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-3">
                 <div className="lg:col-span-6">
-                    <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">
+                    <label className="text-xs font-bold text-slate-700 dark:text-slate-100 uppercase tracking-wider">
                         Buscar
                     </label>
                     <input
                         value={q}
                         onChange={(e) => setQ(e.target.value)}
                         placeholder="Código, nombre, email, teléfono..."
-                        className="mt-2 w-full bg-slate-900/40 border border-fuchsia-500/10 rounded-lg px-4 py-2.5 text-sm text-slate-100 focus:ring-1 focus:ring-fuchsia-500 focus:border-fuchsia-500 outline-none"
+                        className="mt-2 w-full bg-slate-100/40 dark:bg-slate-900/40 border border-fuchsia-500/10 rounded-lg px-4 py-2.5 text-sm text-slate-700 dark:text-slate-100 focus:ring-1 focus:ring-fuchsia-500 focus:border-fuchsia-500 outline-none"
                     />
                 </div>
 
                 <div className="lg:col-span-2">
-                    <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">
+                    <label className="text-xs font-bold text-slate-700 dark:text-slate-100 uppercase tracking-wider">
                         Tipo
                     </label>
                     <select
                         value={type}
                         onChange={(e) => setType(normalizeType(e.target.value))}
-                        className="mt-2 w-full bg-slate-900/40 border border-fuchsia-500/10 rounded-lg px-4 py-2.5 text-sm text-slate-100 focus:ring-1 focus:ring-fuchsia-500 focus:border-fuchsia-500 outline-none"
+                        className="mt-2 w-full bg-slate-100/40 dark:bg-slate-900/40 border border-fuchsia-500/10 rounded-lg px-4 py-2.5 text-sm text-slate-700 dark:text-slate-100 focus:ring-1 focus:ring-fuchsia-500 focus:border-fuchsia-500 outline-none"
                     >
                         <option value="ALL">Todos</option>
                         <option value="ORGANIZATION">Organización</option>
@@ -143,13 +143,13 @@ export default function BusinessPartnerFiltersClient({ initial }: Props) {
                 </div>
 
                 <div className="lg:col-span-2">
-                    <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">
+                    <label className="text-xs font-bold text-slate-700 dark:text-slate-100 uppercase tracking-wider">
                         Estado
                     </label>
                     <select
                         value={status}
                         onChange={(e) => setStatus(normalizeStatus(e.target.value))}
-                        className="mt-2 w-full bg-slate-900/40 border border-fuchsia-500/10 rounded-lg px-4 py-2.5 text-sm text-slate-100 focus:ring-1 focus:ring-fuchsia-500 focus:border-fuchsia-500 outline-none"
+                        className="mt-2 w-full bg-slate-100/40 dark:bg-slate-900/40 border border-fuchsia-500/10 rounded-lg px-4 py-2.5 text-sm text-slate-700 dark:text-slate-100 focus:ring-1 focus:ring-fuchsia-500 focus:border-fuchsia-500 outline-none"
                     >
                         <option value="ALL">Todos</option>
                         <option value="ACTIVE">Activo</option>
@@ -158,13 +158,13 @@ export default function BusinessPartnerFiltersClient({ initial }: Props) {
                 </div>
 
                 <div className="lg:col-span-2">
-                    <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">
+                    <label className="text-xs font-bold text-slate-700 dark:text-slate-100 uppercase tracking-wider">
                         Página
                     </label>
                     <select
                         value={pageSize}
                         onChange={(e) => setPageSize(normalizePageSize(e.target.value))}
-                        className="mt-2 w-full bg-slate-900/40 border border-fuchsia-500/10 rounded-lg px-4 py-2.5 text-sm text-slate-100 focus:ring-1 focus:ring-fuchsia-500 focus:border-fuchsia-500 outline-none"
+                        className="mt-2 w-full bg-slate-100/40 dark:bg-slate-900/40 border border-fuchsia-500/10 rounded-lg px-4 py-2.5 text-sm text-slate-700 dark:text-slate-100 focus:ring-1 focus:ring-fuchsia-500 focus:border-fuchsia-500 outline-none"
                     >
                         <option value="10">10</option>
                         <option value="20">20</option>

@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { createProjectAction } from "@/action/projects/projects";
 import type { TenantSettingsDTO } from "@/types/settings/types";
+import Link from "next/link";
 
 type PartnerPick = {
     id: string;
@@ -150,10 +151,13 @@ export function ProjectCreateFormClient({ settings, partners }: { settings: Tena
                 </div>
             </div>
 
-            <div className="mt-6 flex justify-end">
+            <div className="mt-6 flex justify-end gap-4">
+                <Link href={"/projects"} className="border rounded-md px-4 py-2 text-sm bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-400 cursor-pointer">
+                    Cancelar
+                </Link>
                 <button
                     disabled={pending}
-                    className="transition ease-in-out flex px-4 py-2 items-center justify-center rounded-md bg-linear-to-br from-indigo-500 to-fuchsia-500 text-sm font-bold text-white shadow-md shadow-indigo-500/20 hover:from-indigo-600 hover:to-fuchsia-600 disabled:opacity-60"
+                    className="transition ease-in-out flex px-4 py-2 items-center justify-center rounded-md bg-linear-to-br from-indigo-500 to-fuchsia-500 text-sm font-bold text-white shadow-md shadow-indigo-500/20 hover:from-indigo-600 hover:to-fuchsia-600 disabled:opacity-60 cursor-pointer disabled:cursor-not-allowed"
                 >
                     {pending ? "Creando..." : "Crear Proyecto"}
                 </button>

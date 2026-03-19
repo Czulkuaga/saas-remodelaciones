@@ -152,11 +152,11 @@ export function BusinessPartnerEditFormClient({ initial }: { initial: BP }) {
                             </div>
 
                             {roles.length === 0 ? (
-                                <span className="text-[11px] px-2 py-1 rounded-full border border-rose-500/20 bg-rose-500/10 text-rose-200">
+                                <span className="text-[11px] px-2 py-1 rounded-full border border-rose-500/20 bg-rose-500/10 text-rose-400 dark:bg-rose-500/10 dark:text-rose-200">
                                     Selecciona al menos 1
                                 </span>
                             ) : (
-                                <span className="text-[11px] px-2 py-1 rounded-full border border-fuchsia-500/20 bg-fuchsia-500/10 text-fuchsia-200">
+                                <span className="text-[11px] px-2 py-1 rounded-full border border-fuchsia-500/20 bg-fuchsia-500/10 text-fuchsia-400 dark:bg-rose-500/10 dark:text-rose-200">
                                     {roles.length} seleccionado(s)
                                 </span>
                             )}
@@ -171,9 +171,9 @@ export function BusinessPartnerEditFormClient({ initial }: { initial: BP }) {
                                         type="button"
                                         onClick={() => toggleRole(r.value)}
                                         className={[
-                                            "text-xs font-bold rounded-full px-3 py-1.5 border transition",
+                                            "text-xs font-bold rounded-full px-3 py-1.5 border transition cursor-pointer",
                                             active
-                                                ? "border-fuchsia-500/30 bg-linear-to-br from-indigo-500/20 to-fuchsia-500/20 text-slate-100"
+                                                ? "border-fuchsia-500/30 bg-linear-to-br from-indigo-500/20 to-fuchsia-500/20 text-slate-600 dark:text-slate-100"
                                                 : "border-slate-200 dark:border-slate-700 bg-white/60 dark:bg-slate-900/20 text-slate-700 dark:text-slate-200 hover:border-fuchsia-500/20",
                                         ].join(" ")}
                                     >
@@ -244,7 +244,7 @@ export function BusinessPartnerEditFormClient({ initial }: { initial: BP }) {
                     <button
                         type="button"
                         onClick={() => router.push(`/business-partner/${initial.id}`)}
-                        className="rounded-lg px-4 py-2 text-sm font-semibold text-slate-300 hover:bg-white/5"
+                        className="rounded-lg px-4 py-2 text-sm font-semibold text-slate-700 bg-slate-200 dark:text-slate-100 hover:bg-slate-300 dark:hover:bg-white/5 cursor-pointer"
                         disabled={isSaving}
                     >
                         Cancelar

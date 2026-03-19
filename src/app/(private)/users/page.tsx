@@ -35,8 +35,8 @@ export default async function UsersPage() {
     return (
         <div className="p-6 space-y-4">
             <div>
-                <h1 className="text-xl font-bold text-slate-900 dark:text-slate-100">Usuarios</h1>
-                <p className="text-sm text-slate-600 dark:text-slate-400">
+                <h1 className="text-xl font-bold text-slate-700 dark:text-slate-100">Usuarios</h1>
+                <p className="text-sm text-slate-700 dark:text-slate-400">
                     Administra usuarios que pertenecen a este tenant (membresías).
                 </p>
             </div>
