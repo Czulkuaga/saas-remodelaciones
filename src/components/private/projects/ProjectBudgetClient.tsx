@@ -10,6 +10,7 @@ import {
     deleteBudgetLineAction,
 } from "@/action/projects/project-budget";
 import { BudgetStatus, CostCategory, CommitmentType, CostDocType, RevenueType } from "../../../../generated/prisma/enums";
+import { ProjectExpensesClient } from "@/components/private/projects/expenses/ProjectExpensesClient";
 
 import {
     getPostableBudgetLinesAction,
@@ -1072,169 +1073,11 @@ export function ProjectBudgetClient({
                             </div>
                         </div>
                     ) : tab === "costs" ? (
-                        <div className="space-y-4">
-                            <div className="rounded-xl border border-fuchsia-500/10 bg-slate-50 dark:bg-slate-900/30 p-4">
-                                <div className="flex items-center justify-between gap-3">
-                                    <p className="text-sm font-bold text-slate-900 dark:text-slate-100">Registrar gasto (ejecutado)</p>
-                                    <button
-                                        type="button"
-                                        disabled={pending || !movementsAllowed}
-                                        onClick={() => {
-                                            ensurePostableLines();
-                                            loadCosts();
-                                        }}
-                                        className="text-xs font-bold px-3 py-1.5 rounded-md border border-fuchsia-500/20 bg-fuchsia-500/10 text-fuchsia-200 hover:bg-fuchsia-500/15 disabled:opacity-60"
-                                    >
-                                        {loadingCosts ? "Cargando..." : "Refrescar"}
-                                    </button>
-                                </div>
-
-                                {!movementsAllowed ? (
-                                    <p className="mt-2 text-xs text-slate-400">Bloqueado: no hay presupuesto aprobado.</p>
-                                ) : (
-                                    <form
-                                        className="mt-3 grid grid-cols-1 md:grid-cols-6 gap-3"
-                                        onSubmit={(e) => {
-                                            e.preventDefault();
-                                            setMsg(null);
-                                            submitCreateCost();
-                                        }}
-                                    >
-                                        <select
-                                            value={costLineId}
-                                            onChange={(e) => setCostLineId(e.currentTarget.value)}
-                                            className="md:col-span-2 bg-slate-50 dark:bg-slate-900/40 border border-fuchsia-500/10 rounded-lg px-3 py-2.5 text-sm focus:ring-1 focus:ring-fuchsia-500 outline-none"
-                                        >
-                                            <option value="">Selecciona línea (detalle)</option>
-                                            {postableLines.map((l) => (
-                                                <option key={l.id} value={l.id}>
-                                                    {l.code} • {l.title}
-                                                </option>
-                                            ))}
-                                        </select>
-
-                                        <PartnerSelect
-                                            value={costPartnerId}
-                                            onChange={setCostPartnerId}
-                                            disabled={pending || !movementsAllowed}
-                                        />
-
-                                        <input
-                                            value={costAmount}
-                                            onChange={(e) => setCostAmount(e.currentTarget.value)}
-                                            placeholder={`Monto (${currencyCode ?? "—"})`}
-                                            inputMode="decimal"
-                                            className="bg-slate-50 dark:bg-slate-900/40 border border-fuchsia-500/10 rounded-lg px-3 py-2.5 text-sm focus:ring-1 focus:ring-fuchsia-500 outline-none"
-                                        />
-
-                                        <select
-                                            value={costDocType}
-                                            onChange={(e) => setCostDocType(e.currentTarget.value)}
-                                            className="bg-slate-50 dark:bg-slate-900/40 border border-fuchsia-500/10 rounded-lg px-3 py-2.5 text-sm focus:ring-1 focus:ring-fuchsia-500 outline-none"
-                                            title="Tipo de documento (opcional)"
-                                        >
-                                            <option value="">DocType (opcional)</option>
-                                            {Object.values(CostDocType).map((t) => (
-                                                <option key={t} value={t}>
-                                                    {t}
-                                                </option>
-                                            ))}
-                                        </select>
-
-                                        <input
-                                            value={costDocNo}
-                                            onChange={(e) => setCostDocNo(e.currentTarget.value)}
-                                            placeholder="Doc No. (opcional)"
-                                            className="md:col-span-1 bg-slate-50 dark:bg-slate-900/40 border border-fuchsia-500/10 rounded-lg px-3 py-2.5 text-sm focus:ring-1 focus:ring-fuchsia-500 outline-none"
-                                        />
-
-                                        <input
-                                            type="date"
-                                            value={costOccurredAt}
-                                            onChange={(e) => setCostOccurredAt(e.currentTarget.value)}
-                                            className="bg-slate-50 dark:bg-slate-900/40 border border-fuchsia-500/10 rounded-lg px-3 py-2.5 text-sm focus:ring-1 focus:ring-fuchsia-500 outline-none"
-                                            title="Fecha del gasto"
-                                        />
-
-                                        {/* <input
-                                            value={costNotes}
-                                            onChange={(e) => setCostNotes(e.currentTarget.value)}
-                                            placeholder="Notas (opcional)"
-                                            className="md:col-span-3 bg-slate-50 dark:bg-slate-900/40 border border-fuchsia-500/10 rounded-lg px-3 py-2.5 text-sm focus:ring-1 focus:ring-fuchsia-500 outline-none"
-                                        /> */}
-                                        <textarea
-                                            value={costNotes}
-                                            onChange={(e) => setCostNotes(e.currentTarget.value)}
-                                            placeholder="Notas (opcional)"
-                                            rows={3}
-                                            className="md:col-span-5 bg-slate-50 dark:bg-slate-900/40 border border-fuchsia-500/10 rounded-lg px-3 py-2.5 text-sm focus:ring-1 focus:ring-fuchsia-500 outline-none"
-                                        ></textarea>
-
-                                        <div className="md:col-span-6 flex justify-end">
-                                            <button
-                                                disabled={pending || !movementsAllowed}
-                                                className="transition ease-in-out flex px-4 py-2 items-center justify-center rounded-md bg-linear-to-br from-indigo-500 to-fuchsia-500 text-sm font-bold text-white shadow-md shadow-indigo-500/20 hover:from-indigo-600 hover:to-fuchsia-600 disabled:opacity-60 cursor-pointer"
-                                            >
-                                                {pending ? "Guardando..." : "Registrar gasto"}
-                                            </button>
-                                        </div>
-                                    </form>
-                                )}
-                            </div>
-
-                            <div className="rounded-xl border border-fuchsia-500/10 bg-white/60 dark:bg-slate-950/10 overflow-hidden">
-                                <div className="px-4 py-3 border-b border-fuchsia-500/10 flex items-center justify-between">
-                                    <p className="text-sm font-bold text-slate-900 dark:text-slate-100">Gastos (Ejecutado)</p>
-                                    <span className="text-xs text-slate-500 dark:text-slate-400">{costs.length}</span>
-                                </div>
-
-                                {!movementsAllowed ? (
-                                    <div className="p-4 text-xs text-slate-500 dark:text-slate-400">Bloqueado: no hay presupuesto aprobado.</div>
-                                ) : loadingCosts && !loadedCosts ? (
-                                    <div className="p-4 text-xs text-slate-500 dark:text-slate-400">Cargando...</div>
-                                ) : costs.length === 0 ? (
-                                    <div className="p-4 text-xs text-slate-500 dark:text-slate-400">Sin gastos registrados.</div>
-                                ) : (
-                                    <div className="divide-y divide-fuchsia-500/10">
-                                        {costs.map((c) => (
-                                            <div key={c.id} className="px-4 py-3">
-                                                <div className="flex items-start justify-between gap-4">
-                                                    <div className="min-w-0">
-                                                        <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">
-                                                            {c.budgetLineCode} • {c.budgetLineTitle}
-                                                        </p>
-                                                        <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-                                                            {c.docType ?? "—"} • {c.docNo ?? "—"} • {formatDate(c.occurredAt)}
-                                                        </p>
-                                                        <button
-                                                            type="button"
-                                                            disabled={pending || !movementsAllowed}
-                                                            onClick={() => {
-                                                                if (!confirm("¿Eliminar gasto?")) return;
-                                                                deleteCost(c.id);
-                                                            }}
-                                                            className={[
-                                                                "text-xs font-semibold px-3 py-1 rounded-md border transition mt-3",
-                                                                movementsAllowed
-                                                                    ? "border-rose-500/20 bg-rose-500/10 text-rose-200 hover:bg-rose-500/15 cursor-pointer"
-                                                                    : "border-slate-500/20 bg-slate-500/10 text-slate-400 cursor-not-allowed",
-                                                            ].join(" ")}
-                                                            title={!movementsAllowed ? "No hay presupuesto aprobado (APPROVED)" : "Eliminar gasto"}
-                                                        >
-                                                            Eliminar
-                                                        </button>
-                                                    </div>
-                                                    <div className="shrink-0 text-right">
-                                                        <p className="text-xs text-slate-500 dark:text-slate-400">Monto</p>
-                                                        <p className="text-sm font-bold text-slate-900 dark:text-slate-100">{money(c.amount)}</p>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        ))}
-                                    </div>
-                                )}
-                            </div>
-                        </div>
+                        <ProjectExpensesClient
+                            projectId={projectId}
+                            currencyCode={currencyCode}
+                            teamPartners={teamPartners}
+                        />
                     ) : (
                         <div className="p-5 space-y-4">
                             {!movementsAllowed ? (

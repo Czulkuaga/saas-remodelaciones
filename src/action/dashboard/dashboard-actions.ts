@@ -154,22 +154,39 @@ export async function getDashboardOverviewAction(input?: { range?: string }) {
     const activeProjectIds = activeProjects.map((p) => p.id);
 
     // 2) Financieros por periodo (rango)
-    const [costAgg, commitmentAgg, revenueAgg] = await Promise.all([
-        prisma.projectCost.aggregate({
-            where: { tenantId, projectId: { in: activeProjectIds }, occurredAt: { gte: start, lte: end } },
-            _sum: { amount: true },
+    const [expenseAllocations, commitmentAgg, revenueAgg] = await Promise.all([
+        prisma.projectExpenseAllocation.findMany({
+            where: {
+                tenantId,
+                projectId: { in: activeProjectIds },
+                expense: {
+                    status: "POSTED" as any,
+                    occurredAt: { gte: start, lte: end },
+                },
+            },
+            select: {
+                amount: true,
+            },
         }),
         prisma.projectCommitment.aggregate({
-            where: { tenantId, projectId: { in: activeProjectIds }, occurredAt: { gte: start, lte: end } },
+            where: {
+                tenantId,
+                projectId: { in: activeProjectIds },
+                occurredAt: { gte: start, lte: end },
+            },
             _sum: { amount: true },
         }),
         prisma.projectRevenue.aggregate({
-            where: { tenantId, projectId: { in: activeProjectIds }, occurredAt: { gte: start, lte: end } },
+            where: {
+                tenantId,
+                projectId: { in: activeProjectIds },
+                occurredAt: { gte: start, lte: end },
+            },
             _sum: { amount: true },
         }),
     ]);
 
-    const periodCosts = decToNumber(costAgg._sum.amount);
+    const periodCosts = expenseAllocations.reduce((acc, x) => acc + decToNumber(x.amount), 0);
     const periodCommitments = decToNumber(commitmentAgg._sum.amount);
     const periodRevenues = decToNumber(revenueAgg._sum.amount);
     const periodMargin = periodRevenues - periodCosts - periodCommitments;
@@ -183,8 +200,13 @@ export async function getDashboardOverviewAction(input?: { range?: string }) {
     });
 
     // 4) Costos sin aprobar
-    const costsNotApproved = await prisma.projectCost.count({
-        where: { tenantId, projectId: { in: activeProjectIds }, isApproved: false },
+    const costsNotApproved = await prisma.projectExpense.count({
+        where: {
+            tenantId,
+            projectId: { in: activeProjectIds },
+            isApproved: false,
+            status: { in: ["DRAFT", "REVIEW_PENDING"] as any },
+        },
     });
 
     // 5) Tareas vencidas (conteo + top para worklist)
@@ -282,19 +304,41 @@ export async function getDashboardOverviewAction(input?: { range?: string }) {
 
     // 9) Tendencia financiera (dataset por día)
     // Nota: tu occurredAt puede ser null en algunos modelos; filtramos not null
-    const [costRows, commitRows, revenueRows] = await Promise.all([
-        prisma.projectCost.findMany({
-            where: { tenantId, occurredAt: { not: null, gte: start, lte: end } as any },
-            select: { occurredAt: true, amount: true },
+    const [expenseRows, commitRows, revenueRows] = await Promise.all([
+        prisma.projectExpenseAllocation.findMany({
+            where: {
+                tenantId,
+                projectId: { in: activeProjectIds },
+                expense: {
+                    status: "POSTED" as any,
+                    occurredAt: { not: null, gte: start, lte: end } as any,
+                },
+            },
+            select: {
+                amount: true,
+                expense: {
+                    select: {
+                        occurredAt: true,
+                    },
+                },
+            },
             take: 5000,
         }),
         prisma.projectCommitment.findMany({
-            where: { tenantId, occurredAt: { not: null, gte: start, lte: end } as any },
+            where: {
+                tenantId,
+                projectId: { in: activeProjectIds },
+                occurredAt: { not: null, gte: start, lte: end } as any,
+            },
             select: { occurredAt: true, amount: true },
             take: 5000,
         }),
         prisma.projectRevenue.findMany({
-            where: { tenantId, occurredAt: { not: null, gte: start, lte: end } as any },
+            where: {
+                tenantId,
+                projectId: { in: activeProjectIds },
+                occurredAt: { not: null, gte: start, lte: end } as any,
+            },
             select: { occurredAt: true, amount: true },
             take: 5000,
         }),
@@ -308,9 +352,10 @@ export async function getDashboardOverviewAction(input?: { range?: string }) {
         byDay.set(iso, cur);
     };
 
-    for (const r of costRows) {
-        if (!r.occurredAt) continue;
-        addTo(dayKey(r.occurredAt), "costs", decToNumber(r.amount));
+    for (const r of expenseRows) {
+        const occurredAt = r.expense?.occurredAt;
+        if (!occurredAt) continue;
+        addTo(dayKey(occurredAt), "costs", decToNumber(r.amount));
     }
     for (const r of commitRows) {
         if (!r.occurredAt) continue;

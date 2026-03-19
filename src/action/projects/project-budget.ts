@@ -3,7 +3,7 @@
 import { prisma } from "@/lib/prisma";
 import { requireTenantId, requireUserId } from "@/lib/auth/session";
 import { revalidatePath } from "next/cache";
-import { BudgetStatus, CostKind, CostCategory } from "../../../generated/prisma/enums";
+import { BudgetStatus, CostCategory, ProjectExpenseStatus } from "../../../generated/prisma/enums";
 import { Prisma } from "../../../generated/prisma/client";
 
 type BudgetHeaderPick = { id: string; version: number; status: BudgetStatus; name: string | null; updatedAt: Date };
@@ -473,14 +473,18 @@ export async function deleteBudgetLineAction(projectId: string, budgetId: string
     });
     if (!line) return { ok: false as const, message: "Línea no encontrada." };
 
-    const [childrenCount, costCount, commitmentCount] = await Promise.all([
+    const [childrenCount, costCount, commitmentCount, expenseAllocationCount] = await Promise.all([
         prisma.projectBudgetLine.count({ where: { tenantId, budgetId, parentId: lineId } }),
-        prisma.projectCost.count({ where: { tenantId, projectId, budgetLineId: lineId } }),
+        prisma.projectCost.count({ where: { tenantId, projectId, budgetLineId: lineId } }), // legacy temporal
         prisma.projectCommitment.count({ where: { tenantId, projectId, budgetLineId: lineId } }),
+        prisma.projectExpenseAllocation.count({ where: { tenantId, projectId, budgetLineId: lineId } }),
     ]);
 
-    if (childrenCount > 0) return { ok: false as const, message: "No puedes borrar una línea que tiene sublíneas." };
-    if (costCount > 0 || commitmentCount > 0) {
+    if (childrenCount > 0) {
+        return { ok: false as const, message: "No puedes borrar una línea que tiene sublíneas." };
+    }
+
+    if (costCount > 0 || commitmentCount > 0 || expenseAllocationCount > 0) {
         return { ok: false as const, message: "No puedes borrar una línea con movimientos (compromisos/gastos)." };
     }
 
@@ -593,14 +597,23 @@ export async function getProjectBudgetSummaryAction(projectId: string): Promise<
     const lineIds = linesRaw.map((l) => l.id);
 
     // 5) Movimientos del proyecto (NO dependen del budget, dependen del proyecto)
-    const [commitments, costs, revenues] = await Promise.all([
+    const [commitments, expenseAllocations, revenues] = await Promise.all([
         prisma.projectCommitment.findMany({
             where: { tenantId, projectId },
             select: { amount: true, budgetLineId: true },
         }),
-        prisma.projectCost.findMany({
-            where: { tenantId, projectId, kind: CostKind.ACTUAL },
-            select: { amount: true, budgetLineId: true },
+        prisma.projectExpenseAllocation.findMany({
+            where: {
+                tenantId,
+                projectId,
+                expense: {
+                    status: ProjectExpenseStatus.POSTED,
+                },
+            },
+            select: {
+                amount: true,
+                budgetLineId: true,
+            },
         }),
         prisma.projectRevenue.findMany({
             where: { tenantId, projectId },
@@ -610,7 +623,7 @@ export async function getProjectBudgetSummaryAction(projectId: string): Promise<
 
     // 6) Totales del proyecto (committed/actual/revenue)
     const committedTotal = commitments.reduce((acc, x) => acc + toMoneyNumber(x.amount), 0);
-    const actualTotal = costs.reduce((acc, x) => acc + toMoneyNumber(x.amount), 0);
+    const actualTotal = expenseAllocations.reduce((acc, x) => acc + toMoneyNumber(x.amount), 0);
     const revenueTotal = revenues.reduce((acc, x) => acc + toMoneyNumber(x.amount), 0);
 
     // 7) Sumas por línea (solo para líneas existentes del budgetForView)
@@ -622,7 +635,7 @@ export async function getProjectBudgetSummaryAction(projectId: string): Promise<
     }
 
     const byLineActual = new Map<string, number>();
-    for (const x of costs) {
+    for (const x of expenseAllocations) {
         if (!x.budgetLineId) continue;
         if (lineIds.length && !lineIds.includes(x.budgetLineId)) continue;
         byLineActual.set(x.budgetLineId, (byLineActual.get(x.budgetLineId) ?? 0) + toMoneyNumber(x.amount));

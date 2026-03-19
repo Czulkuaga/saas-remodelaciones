@@ -239,6 +239,8 @@ enum TaskCategory {
   ADMIN // administrativo
 }
 
+// Presupuestos
+
 enum BudgetStatus {
   DRAFT
   APPROVED
@@ -284,6 +286,23 @@ enum RevenueType {
   OTHER
 }
 
+enum ProjectExpenseStatus {
+  DRAFT
+  REVIEW_PENDING
+  POSTED
+  CANCELLED
+}
+
+enum OcrStatus {
+  PENDING
+  PROCESSING
+  EXTRACTED
+  REVIEWED
+  FAILED
+}
+
+// Suscription
+
 enum BillingInterval {
   MONTH
   YEAR
@@ -309,6 +328,7 @@ enum CouponDuration {
   FOREVER
 }
 
+// Providing
 enum ProvisioningStatus {
   PENDING
   RUNNING
@@ -572,6 +592,7 @@ model User {
   meetings           Meeting[]
   agentIdentity      AgentIdentity[]
   projectCosts       ProjectCost[]
+  projectExpenses    ProjectExpense[]
 
   @@unique([phoneNormalized])
   @@index([emailNormalized])
@@ -865,14 +886,16 @@ model RemodelingProject {
   meetings          Meeting[]
   progressSnapshots ProjectProgressSnapshot[]
 
-  createdAt          DateTime                   @default(now())
-  updatedAt          DateTime                   @updatedAt
-  emailOutboxes      EmailOutbox[]
-  projectPartners    RemodelingProjectPartner[]
-  projectBudgets     ProjectBudget[]
-  projectCosts       ProjectCost[]
-  projectCommitments ProjectCommitment[]
-  projectRevenues    ProjectRevenue[]
+  createdAt                 DateTime                   @default(now())
+  updatedAt                 DateTime                   @updatedAt
+  emailOutboxes             EmailOutbox[]
+  projectPartners           RemodelingProjectPartner[]
+  projectBudgets            ProjectBudget[]
+  projectCosts              ProjectCost[]
+  projectCommitments        ProjectCommitment[]
+  projectRevenues           ProjectRevenue[]
+  projectExpenses           ProjectExpense[]
+  projectExpenseAllocations ProjectExpenseAllocation[]
 
   @@unique([tenantId, code])
   @@index([tenantId, status])
@@ -1123,26 +1146,28 @@ model ProjectBudgetLine {
   budgetId String
 
   // SAP-like
-  code          String // "01", "02.10", etc (o generado por number range si quieres)
+  code          String
   title         String
   category      CostCategory
   plannedAmount Decimal      @db.Decimal(18, 2)
 
-  //Currency
+  // Currency
   currencyCode String
   currency     Currency @relation(fields: [currencyCode], references: [code], onDelete: Restrict)
 
-  // opcional: para jerarquía de capítulos
+  // jerarquía
   parentId String?
   parent   ProjectBudgetLine?  @relation("BudgetLineTree", fields: [parentId], references: [id], onDelete: SetNull)
   children ProjectBudgetLine[] @relation("BudgetLineTree")
 
   budget ProjectBudget @relation(fields: [budgetId], references: [id], onDelete: Cascade)
 
-  createdAt          DateTime            @default(now())
-  updatedAt          DateTime            @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
   projectCosts       ProjectCost[]
   projectCommitments ProjectCommitment[]
+  expenseAllocations ProjectExpenseAllocation[]
 
   @@unique([tenantId, budgetId, code])
   @@index([tenantId, budgetId])
@@ -1256,6 +1281,119 @@ model ProjectRevenue {
 
   @@index([tenantId, projectId])
   @@index([currencyCode])
+}
+
+// Gestion de gastos/costos refactorizado
+model ProjectExpense {
+  id        String @id @default(uuid())
+  tenantId  String
+  projectId String
+
+  status ProjectExpenseStatus @default(DRAFT)
+
+  // Proveedor / tercero asociado
+  partnerId String?
+  partner   BusinessPartner? @relation(fields: [partnerId], references: [id], onDelete: SetNull)
+
+  // Usuario que registró o revisó
+  userId String?
+  user   User?   @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  // Documento real
+  docType    CostDocType?
+  docNo      String?
+  docDate    DateTime?
+  occurredAt DateTime?
+  notes      String?
+
+  // OCR / archivo fuente
+  sourceFileUrl     String?
+  sourceFileName    String?
+  ocrStatus         OcrStatus?
+  ocrRawText        String?
+  ocrStructuredJson Json?
+
+  // Moneda del documento
+  currencyCode String
+  currency     Currency @relation(fields: [currencyCode], references: [code], onDelete: Restrict)
+
+  // Totales reales del documento
+  subtotalAmount Decimal? @db.Decimal(18, 2)
+  taxAmount      Decimal? @db.Decimal(18, 2)
+  totalAmount    Decimal  @db.Decimal(18, 2)
+
+  // Estado operativo básico
+  isApproved Boolean   @default(false)
+  paidAt     DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  project     RemodelingProject          @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  items       ProjectExpenseItem[]
+  allocations ProjectExpenseAllocation[]
+
+  @@index([tenantId, projectId])
+  @@index([tenantId, projectId, status])
+  @@index([tenantId, projectId, docDate])
+  @@index([tenantId, partnerId])
+  @@index([currencyCode])
+}
+
+model ProjectExpenseItem {
+  id        String @id @default(uuid())
+  tenantId  String
+  expenseId String
+
+  lineNo Int
+
+  description String
+  quantity    Decimal? @db.Decimal(18, 3)
+  unitPrice   Decimal? @db.Decimal(18, 2)
+  lineAmount  Decimal  @db.Decimal(18, 2)
+
+  // Clasificación opcional
+  category CostCategory?
+
+  // Datos OCR opcionales
+  detectedCode     String?
+  confidenceScore  Decimal? @db.Decimal(5, 4)
+  rawExtractedText String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  expense     ProjectExpense             @relation(fields: [expenseId], references: [id], onDelete: Cascade)
+  allocations ProjectExpenseAllocation[]
+
+  @@unique([expenseId, lineNo])
+  @@index([tenantId, expenseId])
+  @@index([tenantId, category])
+}
+
+model ProjectExpenseAllocation {
+  id            String  @id @default(uuid())
+  tenantId      String
+  projectId     String
+  expenseId     String
+  expenseItemId String?
+  budgetLineId  String
+
+  amount Decimal @db.Decimal(18, 2)
+  notes  String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  expense     ProjectExpense      @relation(fields: [expenseId], references: [id], onDelete: Cascade)
+  expenseItem ProjectExpenseItem? @relation(fields: [expenseItemId], references: [id], onDelete: Cascade)
+  budgetLine  ProjectBudgetLine   @relation(fields: [budgetLineId], references: [id], onDelete: Restrict)
+  project     RemodelingProject   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, projectId])
+  @@index([tenantId, expenseId])
+  @@index([tenantId, expenseItemId])
+  @@index([tenantId, budgetLineId])
 }
 
 // ------------------------------------------------
@@ -1575,6 +1713,7 @@ model BusinessPartner {
   tenantMemberships         TenantMembership[]
   projectCosts              ProjectCost[]
   projectCommitments        ProjectCommitment[]
+  projectExpenses           ProjectExpense[]
 
   @@unique([tenantId, code])
   @@index([tenantId])
@@ -1662,6 +1801,7 @@ model Currency {
   projectCosts       ProjectCost[]
   projectCommitments ProjectCommitment[]
   projectRevenues    ProjectRevenue[]
+  projectExpenses    ProjectExpense[]
 }
 
 // País (ISO 3166-1 alpha-2)
